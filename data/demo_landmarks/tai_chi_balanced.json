@@ -1,0 +1,16 @@
+{
+  "label": "tai_chi_balanced",
+  "fps": 24,
+  "source_type": "demo",
+  "metadata": {
+    "demo_profile": "balanced_upper_limb_control"
+  },
+  "frames": [
+    {"timestamp": 0.0, "landmarks": {"left_hip": {"x": 0.45, "y": 0.62}, "left_shoulder": {"x": 0.44, "y": 0.38}, "left_elbow": {"x": 0.36, "y": 0.42}, "left_wrist": {"x": 0.28, "y": 0.48}, "right_hip": {"x": 0.55, "y": 0.62}, "right_shoulder": {"x": 0.56, "y": 0.38}, "right_elbow": {"x": 0.64, "y": 0.42}, "right_wrist": {"x": 0.72, "y": 0.48}, "left_knee": {"x": 0.45, "y": 0.80}, "right_knee": {"x": 0.55, "y": 0.80}, "left_ankle": {"x": 0.45, "y": 0.96}, "right_ankle": {"x": 0.55, "y": 0.96}}},
+    {"timestamp": 0.1, "landmarks": {"left_hip": {"x": 0.45, "y": 0.62}, "left_shoulder": {"x": 0.44, "y": 0.38}, "left_elbow": {"x": 0.34, "y": 0.39}, "left_wrist": {"x": 0.24, "y": 0.41}, "right_hip": {"x": 0.55, "y": 0.62}, "right_shoulder": {"x": 0.56, "y": 0.38}, "right_elbow": {"x": 0.66, "y": 0.39}, "right_wrist": {"x": 0.76, "y": 0.41}, "left_knee": {"x": 0.45, "y": 0.80}, "right_knee": {"x": 0.55, "y": 0.80}, "left_ankle": {"x": 0.45, "y": 0.96}, "right_ankle": {"x": 0.55, "y": 0.96}}},
+    {"timestamp": 0.2, "landmarks": {"left_hip": {"x": 0.45, "y": 0.62}, "left_shoulder": {"x": 0.44, "y": 0.38}, "left_elbow": {"x": 0.32, "y": 0.36}, "left_wrist": {"x": 0.22, "y": 0.34}, "right_hip": {"x": 0.55, "y": 0.62}, "right_shoulder": {"x": 0.56, "y": 0.38}, "right_elbow": {"x": 0.68, "y": 0.36}, "right_wrist": {"x": 0.78, "y": 0.34}, "left_knee": {"x": 0.45, "y": 0.80}, "right_knee": {"x": 0.55, "y": 0.80}, "left_ankle": {"x": 0.45, "y": 0.96}, "right_ankle": {"x": 0.55, "y": 0.96}}},
+    {"timestamp": 0.3, "landmarks": {"left_hip": {"x": 0.45, "y": 0.62}, "left_shoulder": {"x": 0.44, "y": 0.38}, "left_elbow": {"x": 0.31, "y": 0.32}, "left_wrist": {"x": 0.24, "y": 0.27}, "right_hip": {"x": 0.55, "y": 0.62}, "right_shoulder": {"x": 0.56, "y": 0.38}, "right_elbow": {"x": 0.69, "y": 0.32}, "right_wrist": {"x": 0.76, "y": 0.27}, "left_knee": {"x": 0.45, "y": 0.80}, "right_knee": {"x": 0.55, "y": 0.80}, "left_ankle": {"x": 0.45, "y": 0.96}, "right_ankle": {"x": 0.55, "y": 0.96}}},
+    {"timestamp": 0.4, "landmarks": {"left_hip": {"x": 0.45, "y": 0.62}, "left_shoulder": {"x": 0.44, "y": 0.38}, "left_elbow": {"x": 0.32, "y": 0.35}, "left_wrist": {"x": 0.26, "y": 0.30}, "right_hip": {"x": 0.55, "y": 0.62}, "right_shoulder": {"x": 0.56, "y": 0.38}, "right_elbow": {"x": 0.68, "y": 0.35}, "right_wrist": {"x": 0.74, "y": 0.30}, "left_knee": {"x": 0.45, "y": 0.80}, "right_knee": {"x": 0.55, "y": 0.80}, "left_ankle": {"x": 0.45, "y": 0.96}, "right_ankle": {"x": 0.55, "y": 0.96}}},
+    {"timestamp": 0.5, "landmarks": {"left_hip": {"x": 0.45, "y": 0.62}, "left_shoulder": {"x": 0.44, "y": 0.38}, "left_elbow": {"x": 0.35, "y": 0.39}, "left_wrist": {"x": 0.28, "y": 0.45}, "right_hip": {"x": 0.55, "y": 0.62}, "right_shoulder": {"x": 0.56, "y": 0.38}, "right_elbow": {"x": 0.65, "y": 0.39}, "right_wrist": {"x": 0.72, "y": 0.45}, "left_knee": {"x": 0.45, "y": 0.80}, "right_knee": {"x": 0.55, "y": 0.80}, "left_ankle": {"x": 0.45, "y": 0.96}, "right_ankle": {"x": 0.55, "y": 0.96}}}
+  ]
+}

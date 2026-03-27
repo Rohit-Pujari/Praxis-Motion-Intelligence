@@ -1,0 +1,62 @@
+{
+  "joint_rom_thresholds": {
+    "left_shoulder_abduction": {
+      "minimum_rom": 20.0,
+      "description": "Reduced left shoulder excursion may indicate impaired frontal-plane arm lift."
+    },
+    "right_shoulder_abduction": {
+      "minimum_rom": 20.0,
+      "description": "Reduced right shoulder excursion may indicate impaired frontal-plane arm lift."
+    },
+    "left_elbow_flexion": {
+      "minimum_rom": 18.0,
+      "description": "Limited left elbow flexion-extension suggests reduced reaching adaptability."
+    },
+    "right_elbow_flexion": {
+      "minimum_rom": 18.0,
+      "description": "Limited right elbow flexion-extension suggests reduced reaching adaptability."
+    },
+    "left_hip_flexion": {
+      "minimum_rom": 16.0,
+      "description": "Reduced left hip excursion may impair limb advancement during gait."
+    },
+    "right_hip_flexion": {
+      "minimum_rom": 16.0,
+      "description": "Reduced right hip excursion may impair limb advancement during gait."
+    },
+    "left_knee_flexion": {
+      "minimum_rom": 22.0,
+      "description": "Reduced left knee flexion may limit swing-phase foot clearance."
+    },
+    "right_knee_flexion": {
+      "minimum_rom": 22.0,
+      "description": "Reduced right knee flexion may limit swing-phase foot clearance."
+    }
+  },
+  "asymmetry_pairs": [
+    {
+      "left": "left_shoulder_abduction",
+      "right": "right_shoulder_abduction",
+      "max_difference": 18.0,
+      "description": "Shoulder ROM asymmetry may reflect unilateral motor deficit or compensation."
+    },
+    {
+      "left": "left_elbow_flexion",
+      "right": "right_elbow_flexion",
+      "max_difference": 20.0,
+      "description": "Elbow ROM asymmetry may indicate unequal arm recruitment."
+    },
+    {
+      "left": "left_hip_flexion",
+      "right": "right_hip_flexion",
+      "max_difference": 14.0,
+      "description": "Hip ROM asymmetry may indicate compensatory gait strategy."
+    },
+    {
+      "left": "left_knee_flexion",
+      "right": "right_knee_flexion",
+      "max_difference": 18.0,
+      "description": "Knee ROM asymmetry may indicate impaired swing mechanics."
+    }
+  ]
+}

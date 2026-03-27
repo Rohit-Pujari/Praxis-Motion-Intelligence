@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Movement Report</title>
+  <style>
+    :root {
+      --bg: #f7f7f2;
+      --ink: #16211c;
+      --muted: #617166;
+      --line: rgba(22,33,28,0.12);
+      --excellent: #1b7f5b;
+      --good: #4e8b35;
+      --watch: #c88a1f;
+      --limited: #b94f36;
+      --panel: white;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        linear-gradient(180deg, rgba(27,127,91,0.05), transparent 20%),
+        linear-gradient(135deg, #faf8f2, #f1eee5);
+    }
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 36px 20px 48px;
+    }
+    .header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      justify-content: space-between;
+      align-items: end;
+      margin-bottom: 26px;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 3.8rem);
+      letter-spacing: -0.04em;
+      line-height: 0.95;
+    }
+    .header p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      max-width: 45rem;
+      line-height: 1.6;
+    }
+    .back {
+      color: var(--ink);
+      text-decoration: none;
+      border-bottom: 1px solid var(--ink);
+    }
+    .hero {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: 1.2fr 0.8fr;
+      margin-bottom: 18px;
+    }
+    .panel {
+      background: var(--panel);
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      padding: 22px;
+      box-shadow: 0 20px 46px rgba(22,33,28,0.06);
+    }
+    .score-ring {
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at center, white 0 52%, transparent 53% 100%),
+        conic-gradient(var(--{{ score_band }}) {{ report.overall_score * 3.6 }}deg, rgba(22,33,28,0.08) 0deg);
+      margin: 8px auto 12px;
+    }
+    .score-ring strong {
+      font-size: 2.4rem;
+    }
+    .kpis {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      margin: 18px 0;
+    }
+    .kpi {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+    }
+    .kpi span {
+      display: block;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .kpi strong {
+      font-size: 1.8rem;
+    }
+    .grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      margin-top: 18px;
+    }
+    ul {
+      padding-left: 18px;
+      line-height: 1.65;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--line);
+    }
+    th {
+      color: var(--muted);
+      font-weight: normal;
+    }
+    .exercise {
+      padding: 14px 0;
+      border-top: 1px solid var(--line);
+    }
+    .exercise:first-child { border-top: 0; padding-top: 0; }
+    .visual-guide {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .pose-frame {
+      min-height: 142px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(27,127,91,0.08), transparent),
+        #fbfaf6;
+      display: grid;
+      place-items: center;
+      padding: 8px;
+      text-align: center;
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+    .pose-frame svg {
+      width: 100%;
+      max-width: 110px;
+      height: auto;
+      margin-bottom: 8px;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .tag {
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(22,33,28,0.05);
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+    @media (max-width: 860px) {
+      .hero { grid-template-columns: 1fr; }
+      .visual-guide { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="header">
+      <div>
+        <a class="back" href="/">New analysis</a>
+        <h1>Movement quality report</h1>
+        <p>{{ report.label }} was compared against UCF101-inspired movement references and stroke-oriented mobility heuristics.</p>
+      </div>
+    </div>
+
+    <section class="hero">
+      <div class="panel">
+        <div class="score-ring">
+          <strong>{{ "%.1f"|format(report.overall_score) }}</strong>
+        </div>
+        <div class="kpis">
+          <div class="kpi">
+            <span>Reference similarity</span>
+            <strong>{{ "%.1f"|format(report.reference_score) }}</strong>
+          </div>
+          <div class="kpi">
+            <span>Symmetry</span>
+            <strong>{{ "%.1f"|format(report.symmetry_score) }}</strong>
+          </div>
+          <div class="kpi">
+            <span>Smoothness</span>
+            <strong>{{ "%.1f"|format(report.smoothness_score) }}</strong>
+          </div>
+        </div>
+        <div class="meta">
+          <span class="tag">Matched action: {{ report.matched_reference }}</span>
+          {% for key, value in report.metadata.items() %}
+            {% if value %}
+              <span class="tag">{{ key }}: {{ value }}</span>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Quantitative feedback</h2>
+        <ul>
+          {% for item in report.feedback %}
+            <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="panel">
+        <h2>Joint angle summary</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Joint</th>
+              <th>Min</th>
+              <th>Max</th>
+              <th>ROM</th>
+              <th>Mean</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in joint_summary %}
+              <tr>
+                <td>{{ row.joint }}</td>
+                <td>{{ row.minimum }}</td>
+                <td>{{ row.maximum }}</td>
+                <td>{{ row.rom }}</td>
+                <td>{{ row.mean }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <h2>Detected limitations</h2>
+        {% if report.limitations %}
+          <ul>
+            {% for limitation in report.limitations %}
+              <li><strong>{{ limitation.joint }}</strong>: {{ limitation.description }} {{ limitation.evidence }}</li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p>No major stroke-oriented limitations were triggered by the current thresholds.</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="panel" style="margin-top: 18px;">
+      <h2>Recommended rehabilitation exercises</h2>
+      {% if report.exercises %}
+        {% for exercise in report.exercises %}
+          <div class="exercise">
+            <strong>{{ exercise.name }}</strong>
+            <p>Target: {{ exercise.target }}. Dosage: {{ exercise.dosage }}. {{ exercise.rationale }}</p>
+            <div class="visual-guide">
+              {% for cue in exercise.visual_cues %}
+                <div class="pose-frame">
+                  <svg viewBox="0 0 120 120" aria-hidden="true">
+                    <circle cx="60" cy="20" r="11" fill="none" stroke="#1b7f5b" stroke-width="4"/>
+                    <line x1="60" y1="31" x2="60" y2="62" stroke="#1b7f5b" stroke-width="4"/>
+                    <line x1="60" y1="42" x2="38" y2="58" stroke="#1b7f5b" stroke-width="4"/>
+                    <line x1="60" y1="42" x2="82" y2="58" stroke="#1b7f5b" stroke-width="4"/>
+                    <line x1="60" y1="62" x2="44" y2="95" stroke="#d96c3d" stroke-width="4"/>
+                    <line x1="60" y1="62" x2="76" y2="95" stroke="#d96c3d" stroke-width="4"/>
+                  </svg>
+                  <span>{{ cue }}</span>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p>No exercise suggestions were produced for this movement. Provide a richer pose sequence or add custom rehab rules.</p>
+      {% endif %}
+    </section>
+  </main>
+</body>
+</html>

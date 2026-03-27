@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Praxis Motion Intelligence</title>
+  <style>
+    :root {
+      --bg: #f3efe5;
+      --panel: rgba(255, 252, 246, 0.9);
+      --ink: #15231d;
+      --muted: #58685f;
+      --accent: #006d5b;
+      --accent-2: #d96c3d;
+      --line: rgba(21, 35, 29, 0.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(217,108,61,0.18), transparent 30%),
+        radial-gradient(circle at right, rgba(0,109,91,0.15), transparent 35%),
+        linear-gradient(135deg, #f6f2e8, #ece6d6);
+      min-height: 100vh;
+    }
+    main {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 48px 20px 56px;
+    }
+    .hero {
+      display: grid;
+      gap: 22px;
+      grid-template-columns: 1.2fr 0.8fr;
+      align-items: start;
+    }
+    .title {
+      font-size: clamp(2.4rem, 6vw, 5rem);
+      line-height: 0.94;
+      margin: 0;
+      letter-spacing: -0.04em;
+    }
+    .subtitle {
+      margin: 0;
+      max-width: 48rem;
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.7;
+    }
+    .callout, form {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 24px 50px rgba(21, 35, 29, 0.08);
+    }
+    .callout {
+      padding: 20px;
+      transform: rotate(-1.5deg);
+    }
+    .callout h2 {
+      margin: 0 0 12px;
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+    }
+    .callout p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+    form {
+      margin-top: 28px;
+      padding: 26px;
+      display: grid;
+      gap: 18px;
+    }
+    .grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+    label {
+      display: grid;
+      gap: 8px;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+    input, textarea, select, button {
+      font: inherit;
+    }
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.9);
+      color: var(--ink);
+    }
+    textarea {
+      min-height: 220px;
+      resize: vertical;
+      font-family: "Courier New", monospace;
+      font-size: 0.9rem;
+    }
+    button {
+      justify-self: start;
+      border: 0;
+      border-radius: 999px;
+      padding: 13px 20px;
+      background: linear-gradient(120deg, var(--accent), #0f8b71);
+      color: white;
+      cursor: pointer;
+      transition: transform 160ms ease, box-shadow 160ms ease;
+      box-shadow: 0 14px 24px rgba(0,109,91,0.2);
+    }
+    button:hover {
+      transform: translateY(-1px);
+    }
+    .error {
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(217, 108, 61, 0.12);
+      border: 1px solid rgba(217,108,61,0.24);
+      color: #8a3d1d;
+    }
+    .chips {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.75);
+    }
+    @media (max-width: 800px) {
+      .hero { grid-template-columns: 1fr; }
+      .callout { transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div>
+        <p class="chip">AI rehabilitation assessment</p>
+        <h1 class="title">Human action analysis for physiotherapy follow-up.</h1>
+        <p class="subtitle">
+          Upload a patient video, landmark sequence, or demo case to score movement quality, compare it with UCF101-inspired action references, surface stroke-related motion limitations, and generate targeted exercise guidance.
+        </p>
+      </div>
+      <aside class="callout">
+        <h2>Clinical framing</h2>
+        <p>
+          The report combines reference-pattern similarity, bilateral symmetry, motion smoothness, and stroke-informed range-of-motion checks. It is designed as a monitoring aid, not a diagnostic device.
+        </p>
+      </aside>
+    </section>
+
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form action="/analyze" method="post" enctype="multipart/form-data">
+      <div class="chips">
+        <span class="chip">Video upload</span>
+        <span class="chip">Pose JSON</span>
+        <span class="chip">Demo scenarios</span>
+      </div>
+
+      <div class="grid">
+        <label>
+          Video input
+          <input type="file" name="video_file" accept="video/*">
+        </label>
+        <label>
+          Demo case
+          <select name="demo_name">
+            <option value="">None</option>
+            {% for demo in demos %}
+              <option value="{{ demo }}">{{ demo }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+
+      <label>
+        Landmark JSON input
+        <textarea name="landmarks_json" placeholder='Paste landmark JSON here to bypass video pose extraction.'></textarea>
+      </label>
+
+      <button type="submit">Analyze movement</button>
+    </form>
+  </main>
+</body>
+</html>

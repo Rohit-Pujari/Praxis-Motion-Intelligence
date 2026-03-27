@@ -1,0 +1,349 @@
+Praxis Motion Intelligence: Full Explanation
+
+1. Overview
+
+This system is an AI-assisted human action analysis platform designed for rehabilitation monitoring. Its main purpose is to help physiotherapists review a patient's movement quality from video or pose-landmark input. It analyzes how a person moves, measures important joint behaviors, compares those behaviors with known reference movement patterns, detects possible movement limitations, and recommends rehabilitation exercises.
+
+The implementation in this repository is structured as a practical pipeline rather than a single end-to-end deep learning model. That design choice keeps the system modular, explainable, and easier to extend.
+
+At a high level, the system performs five main tasks:
+
+- accepts movement input from video, landmark JSON, or demo sequences
+- performs pose estimation when a compatible backend is available
+- computes joint angles and movement features over time
+- compares the observed motion against reference patterns inspired by the UCF101 dataset
+- flags possible stroke-related impairments and recommends rehabilitation exercises
+
+
+2. What the system actually uses as the "model"
+
+This project does not rely on one monolithic trained model. Instead, it uses a layered analysis pipeline:
+
+- Layer 1: Pose estimation
+  This is optional and backend-dependent. If `mediapipe` and `opencv-python` are available, the system can estimate body landmarks from a real video automatically.
+
+- Layer 2: Kinematic feature extraction
+  After landmarks are available, the system computes clinically meaningful joint angles such as:
+  - left and right elbow flexion
+  - left and right shoulder abduction
+  - left and right hip flexion
+  - left and right knee flexion
+
+- Layer 3: Reference matching
+  The measured angle trajectories are compared with reference templates inspired by UCF101 action categories.
+
+- Layer 4: Clinical rule analysis
+  The system checks movement limitations using stroke-oriented heuristics such as reduced range of motion and left-right asymmetry.
+
+- Layer 5: Rehabilitation recommendation
+  Based on the detected limitations, it recommends targeted exercises and visual guidance cues.
+
+So the intelligence comes from combining pose estimation, signal processing, reference-pattern matching, and rehabilitation rules.
+
+
+3. Input pipeline
+
+The system supports three input modes:
+
+- Video upload
+  A user can upload a video. The system extracts basic metadata such as width, height, duration, and frame rate using `ffprobe`. If a pose estimator is available, it tries to convert the video into body landmarks.
+
+- Landmark JSON upload
+  A user can paste or upload pose landmarks directly. This bypasses video pose estimation and sends the data straight into the analysis engine.
+
+- Demo sequences
+  The repository includes demo landmark files so the full pipeline can be tested without external datasets or extra dependencies.
+
+This input handling is implemented mainly in:
+- [server.py](/home/rohitpujari/Documents/praxis/src/praxis_ai/server.py)
+- [pose_estimation.py](/home/rohitpujari/Documents/praxis/src/praxis_ai/pose_estimation.py)
+
+
+4. Pose estimation
+
+Pose estimation is the process of locating key body joints in each frame of a video. These joints are represented as landmarks such as shoulder, elbow, wrist, hip, knee, and ankle.
+
+In this repository:
+
+- the system defines a generic `PoseEstimator` interface
+- it includes a `MediaPipePoseEstimator` implementation
+- it can also load pose landmarks from JSON files
+
+If `mediapipe` and `opencv-python` are installed, the `MediaPipePoseEstimator` can read video frames and produce a `PoseSequence`.
+
+The pose landmarks used by the rest of the system include:
+
+- `nose`
+- `left_shoulder`, `right_shoulder`
+- `left_elbow`, `right_elbow`
+- `left_wrist`, `right_wrist`
+- `left_hip`, `right_hip`
+- `left_knee`, `right_knee`
+- `left_ankle`, `right_ankle`
+
+These landmarks are normalized coordinates and are used for downstream movement analysis.
+
+
+5. Data structures
+
+The core domain models are defined in:
+- [models.py](/home/rohitpujari/Documents/praxis/src/praxis_ai/models.py)
+
+Important objects include:
+
+- `Landmark`
+  Represents one body point with `x`, `y`, `z`, and visibility.
+
+- `PoseFrame`
+  Represents one frame of movement with a timestamp and a set of landmarks.
+
+- `PoseSequence`
+  Represents the full movement sequence across time.
+
+- `JointSeries`
+  Stores all measured values of one joint angle over time and exposes min, max, mean, and range of motion.
+
+- `Limitation`
+  Describes a detected movement problem, including severity and evidence.
+
+- `ExerciseGuide`
+  Describes a recommended rehabilitation exercise and its visual guidance cues.
+
+- `AnalysisReport`
+  Stores the full output of the analysis pipeline.
+
+
+6. Joint-angle analysis
+
+Once landmarks are available, the system computes angles from triples of body points.
+
+Examples:
+
+- elbow flexion is computed from shoulder, elbow, and wrist
+- shoulder abduction is computed from elbow, shoulder, and hip
+- hip flexion is computed from shoulder, hip, and knee
+- knee flexion is computed from hip, knee, and ankle
+
+This is handled in:
+- [analysis.py](/home/rohitpujari/Documents/praxis/src/praxis_ai/analysis.py)
+
+The angle calculation works by:
+
+1. forming vectors from the middle joint to the outer joints
+2. computing the cosine similarity between those vectors
+3. converting that value into an angle in degrees
+
+This produces a time series for each joint angle across the full action sequence.
+
+
+7. Movement features the system measures
+
+The system calculates several quantitative metrics:
+
+- Reference similarity score
+  Measures how closely the person's movement follows a known reference pattern.
+
+- Symmetry score
+  Measures how similar the left and right limbs are during movement.
+
+- Smoothness score
+  Measures how continuous and controlled the movement is by using derivatives of the joint trajectories.
+
+- Joint-specific scores
+  Measures how closely each joint follows the matched reference trajectory.
+
+- Range of motion
+  Measures the difference between the minimum and maximum angle reached by a joint.
+
+These metrics are combined into the final report.
+
+
+8. How reference matching works
+
+The repository includes a small local reference dataset in:
+- [reference_patterns.json](/home/rohitpujari/Documents/praxis/data/reference_patterns.json)
+
+These references are inspired by UCF101 action categories and currently include patterns such as:
+
+- `walking_with_dog`
+- `lunges`
+- `tai_chi`
+- `wall_pushups`
+
+Each reference contains expected joint-angle trajectories for the most relevant joints in that action.
+
+The system compares the user's movement to each reference by:
+
+1. resampling the observed trajectory and the reference trajectory to a common length
+2. computing a normalized distance between them
+3. converting that distance into a score out of 100
+4. selecting the reference with the best average joint match
+
+This means the system performs reference-based action interpretation from kinematic patterns rather than video-classification logits.
+
+
+9. How stroke-related limitation detection works
+
+The repository also includes rule-based clinical heuristics in:
+- [stroke_rules.json](/home/rohitpujari/Documents/praxis/data/stroke_rules.json)
+
+These rules encode simple movement-limitation checks such as:
+
+- minimum acceptable range of motion for key joints
+- maximum acceptable asymmetry between left and right limbs
+
+Examples of problems the system can flag:
+
+- reduced shoulder excursion
+- limited elbow flexion-extension
+- reduced hip advancement
+- reduced knee flexion during gait
+- strong left-right asymmetry
+
+The system does not claim medical diagnosis. It simply marks possible limitations based on thresholds inspired by rehabilitation reasoning.
+
+
+10. Rehabilitation exercise recommendation
+
+After detecting limitations, the system maps them to a small exercise bank in:
+- [rehab.py](/home/rohitpujari/Documents/praxis/src/praxis_ai/rehab.py)
+
+Examples include:
+
+- Supported Shoulder Abduction Reaches
+- Table-Supported Elbow Flexion Slides
+- Marching Weight-Shift Drill
+- Step-and-Bend Patterning
+- Mirror-Assisted Bilateral Repetitions
+
+Each exercise contains:
+
+- target area
+- dosage
+- rationale
+- visual cues
+
+This helps physiotherapists understand what corrective or supportive movement drills may fit the observed deficits.
+
+
+11. Quantitative scoring
+
+The final movement quality score is a combination of:
+
+- reference similarity
+- bilateral symmetry
+- smoothness
+- penalties for detected limitations
+
+This produces an overall score between 0 and 100.
+
+The report also includes:
+
+- matched movement class
+- joint-level angle summary
+- descriptive feedback statements
+- detected limitations
+- recommended rehabilitation exercises
+
+
+12. User interface
+
+The application includes a lightweight browser-based UI using HTML templates:
+
+- [index.html](/home/rohitpujari/Documents/praxis/src/praxis_ai/templates/index.html)
+- [report.html](/home/rohitpujari/Documents/praxis/src/praxis_ai/templates/report.html)
+
+The UI allows the user to:
+
+- upload a video
+- paste landmark JSON
+- select a demo case
+- view the generated movement report
+
+The report presents:
+
+- the overall score
+- reference similarity, symmetry, and smoothness KPIs
+- joint-angle summaries
+- limitation findings
+- rehabilitation recommendations with simple visual guidance panels
+
+
+13. What dataset is currently used
+
+The current repository uses local reference data, not full raw public datasets bundled in the repo.
+
+Currently included:
+
+- UCF101-inspired action reference patterns
+- stroke-motion heuristic thresholds
+- synthetic demo landmark sequences
+
+Important clarification:
+
+- the repository does not currently ship the full UCF101 dataset
+- the repository does not currently ship a real clinical stroke motion dataset
+- instead, it uses curated reference templates and clinical heuristics derived from those ideas
+
+So it is dataset-informed, but not yet connected to full external dataset ingestion by default.
+
+
+14. Why the system is useful for physiotherapy
+
+This approach is useful because it provides structured, explainable movement analysis:
+
+- it converts subjective video review into measurable joint behavior
+- it provides consistent numerical scores
+- it highlights asymmetries and restricted motion
+- it links findings to practical exercise suggestions
+- it can support progress tracking over time
+
+For physiotherapists, this means the tool can assist with:
+
+- baseline movement assessment
+- repeated monitoring across sessions
+- identifying likely compensations
+- planning exercise focus
+- documenting recovery trends
+
+
+15. Current limitations
+
+The current implementation is a strong prototype, but it has clear limitations:
+
+- real pose estimation depends on optional libraries not installed in this environment
+- the shipped references are curated templates, not a full learned model from UCF101 videos
+- clinical logic is heuristic and should not be treated as diagnosis
+- the system currently uses a small exercise bank
+- there is no persistent patient database or longitudinal tracking yet
+
+These limitations are normal for the current stage and can be improved incrementally.
+
+
+16. What can be extended next
+
+Possible next upgrades include:
+
+- integrating real UCF101 preprocessing pipelines
+- training action-specific temporal models from pose sequences
+- importing an actual clinical stroke motion dataset
+- adding patient history and progress dashboards
+- storing repeated sessions and plotting recovery trends
+- exporting PDF physiotherapy reports
+- adding frame-level visual pose overlays
+- using a stronger rehab recommendation engine
+
+
+17. Final summary
+
+In simple terms, the system works like this:
+
+1. take a patient video or pose data
+2. estimate body landmarks
+3. compute joint angles through time
+4. compare the motion with known action references
+5. score quality based on similarity, symmetry, and smoothness
+6. detect possible stroke-related movement limitations
+7. recommend rehabilitation exercises with guidance
+
+So the system is an explainable AI-assisted movement analysis pipeline intended to support physiotherapists in monitoring rehabilitation progress.
