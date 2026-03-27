@@ -1,0 +1,95 @@
+{
+  "source": "dataset/impaired MATLAB clinical dataset",
+  "mapping": {
+    "left_hip_flexion": {
+      "joint": "HipAngles",
+      "axis": "x"
+    },
+    "right_hip_flexion": {
+      "joint": "HipAngles",
+      "axis": "x"
+    },
+    "left_knee_flexion": {
+      "joint": "KneeAngles",
+      "axis": "x"
+    },
+    "right_knee_flexion": {
+      "joint": "KneeAngles",
+      "axis": "x"
+    },
+    "left_shoulder_abduction": {
+      "joint": "ShoulderAngles",
+      "axis": "x"
+    },
+    "right_shoulder_abduction": {
+      "joint": "ShoulderAngles",
+      "axis": "x"
+    },
+    "left_elbow_flexion": {
+      "joint": "ElbowAngles",
+      "axis": "x"
+    },
+    "right_elbow_flexion": {
+      "joint": "ElbowAngles",
+      "axis": "x"
+    }
+  },
+  "joint_thresholds": {
+    "left_hip_flexion": {
+      "minimum_rom": 40.2,
+      "able_mean_angle": 12.78,
+      "able_std_angle": 8.42,
+      "normal_angle_min": -4.07,
+      "normal_angle_max": 29.62
+    },
+    "right_hip_flexion": {
+      "minimum_rom": 40.2,
+      "able_mean_angle": 12.78,
+      "able_std_angle": 8.42,
+      "normal_angle_min": -4.07,
+      "normal_angle_max": 29.62
+    },
+    "left_knee_flexion": {
+      "minimum_rom": 51.85,
+      "able_mean_angle": 20.15,
+      "able_std_angle": 5.25,
+      "normal_angle_min": 9.66,
+      "normal_angle_max": 30.65
+    },
+    "right_knee_flexion": {
+      "minimum_rom": 51.85,
+      "able_mean_angle": 20.15,
+      "able_std_angle": 5.25,
+      "normal_angle_min": 9.66,
+      "normal_angle_max": 30.65
+    },
+    "left_shoulder_abduction": {
+      "minimum_rom": 17.67,
+      "able_mean_angle": -9.37,
+      "able_std_angle": 6.19,
+      "normal_angle_min": -21.75,
+      "normal_angle_max": 3.0
+    },
+    "right_shoulder_abduction": {
+      "minimum_rom": 17.67,
+      "able_mean_angle": -9.37,
+      "able_std_angle": 6.19,
+      "normal_angle_min": -21.75,
+      "normal_angle_max": 3.0
+    },
+    "left_elbow_flexion": {
+      "minimum_rom": 13.16,
+      "able_mean_angle": 38.83,
+      "able_std_angle": 5.52,
+      "normal_angle_min": 27.8,
+      "normal_angle_max": 49.87
+    },
+    "right_elbow_flexion": {
+      "minimum_rom": 13.16,
+      "able_mean_angle": 38.83,
+      "able_std_angle": 5.52,
+      "normal_angle_min": 27.8,
+      "normal_angle_max": 49.87
+    }
+  }
+}

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import math
-from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
 import numpy as np
 
+from .calibration import get_target_rom
 from .models import AnalysisReport, JointSeries, Landmark, Limitation, PoseFrame, PoseSequence
-from .reference_data import load_reference_patterns
 
 
 ANGLE_TRIPLETS: Dict[str, Tuple[str, str, str]] = {
@@ -20,7 +19,6 @@ ANGLE_TRIPLETS: Dict[str, Tuple[str, str, str]] = {
     "left_knee_flexion": ("left_hip", "left_knee", "left_ankle"),
     "right_knee_flexion": ("right_hip", "right_knee", "right_ankle"),
 }
-
 
 def _vector(a: Landmark, b: Landmark) -> np.ndarray:
     return np.array([a.x - b.x, a.y - b.y, a.z - b.z], dtype=float)
@@ -57,6 +55,14 @@ def resample(values: Iterable[float], target_len: int = 32) -> np.ndarray:
     return np.interp(new_index, old_index, values)
 
 
+def smooth_signal(values: np.ndarray, window: int = 5) -> np.ndarray:
+    if len(values) < window or window < 3:
+        return values
+    kernel = np.ones(window, dtype=float) / window
+    padded = np.pad(values, (window // 2, window // 2), mode="edge")
+    return np.convolve(padded, kernel, mode="valid")
+
+
 def normalized_distance(a: Iterable[float], b: Iterable[float]) -> float:
     aa = resample(a)
     bb = resample(b)
@@ -79,75 +85,103 @@ def symmetry_score(series: Dict[str, JointSeries]) -> float:
     return sum(scores) / len(scores) if scores else 0.0
 
 
-def smoothness_score(series: Dict[str, JointSeries]) -> float:
+def smoothness_score(series: Dict[str, JointSeries], active_joints: List[str] | None = None) -> float:
     scores: List[float] = []
-    for joint in series.values():
-        values = resample(joint.values, 48)
-        velocity = np.diff(values)
+    relevant = active_joints or list(series.keys())
+    for joint_name in relevant:
+        if joint_name not in series:
+            continue
+        joint = series[joint_name]
+        values = smooth_signal(resample(joint.values, 48), window=7)
+        velocity = np.diff(values) / 1.0
         acceleration = np.diff(velocity)
         jerk = np.diff(acceleration)
-        cost = float(np.mean(np.abs(jerk))) if len(jerk) else 0.0
-        scores.append(max(0.0, 100.0 - cost * 3.0))
+        rom_scale = max(joint.rom, 8.0)
+        normalized_jerk = float(np.mean(np.abs(jerk)) / rom_scale) if len(jerk) else 0.0
+        scores.append(max(0.0, 100.0 - normalized_jerk * 280.0))
     return sum(scores) / len(scores) if scores else 0.0
 
 
-def match_reference(series: Dict[str, JointSeries], base_dir: Path) -> Tuple[str, Dict[str, float], float]:
-    references = load_reference_patterns(base_dir)
-    best_name = "unknown"
-    best_score = -1.0
-    best_joint_scores: Dict[str, float] = {}
-    for name, reference in references.items():
-        joint_scores: Dict[str, float] = {}
-        for joint_name, pattern in reference["joint_patterns"].items():
-            if joint_name not in series:
-                continue
-            distance = normalized_distance(series[joint_name].values, pattern)
-            joint_scores[joint_name] = max(0.0, 100.0 - distance * 100.0)
-        if not joint_scores:
-            continue
-        score = sum(joint_scores.values()) / len(joint_scores)
-        if score > best_score:
-            best_name = name
-            best_score = score
-            best_joint_scores = joint_scores
-    return best_name, best_joint_scores, max(best_score, 0.0)
+def mobility_scores(series: Dict[str, JointSeries]) -> Dict[str, float]:
+    target_rom = get_target_rom()
+    scores: Dict[str, float] = {}
+    for joint_name, joint in series.items():
+        target = target_rom.get(joint_name, 30.0)
+        ratio = min(joint.rom / target, 1.0)
+        scores[joint_name] = max(0.0, min(100.0, ratio * 100.0))
+    return scores
+
+
+def active_joint_names(series: Dict[str, JointSeries]) -> List[str]:
+    target_rom = get_target_rom()
+    ranked = sorted(series.items(), key=lambda item: item[1].rom, reverse=True)
+    if not ranked:
+        return []
+
+    active: List[str] = []
+    for joint_name, joint in ranked:
+        target = target_rom.get(joint_name, 30.0)
+        if joint.rom >= max(12.0, target * 0.4):
+            active.append(joint_name)
+
+    if len(active) < 2:
+        active = [joint_name for joint_name, _ in ranked[: min(4, len(ranked))]]
+
+    return active
 
 
 def infer_feedback(
-    matched_reference: str,
-    reference_score: float,
+    form_score: float,
+    mobility_score: float,
     symmetry: float,
     smoothness: float,
     joint_scores: Dict[str, float],
+    active_joints: List[str],
 ) -> List[str]:
     feedback = [
-        f"Matched movement pattern: {matched_reference.replace('_', ' ')}.",
-        f"Reference similarity is {reference_score:.1f}/100, indicating how closely the movement follows the UCF101-derived template.",
+        f"Overall form quality score is {form_score:.1f}/100.",
+        f"Active-joint mobility score is {mobility_score:.1f}/100.",
         f"Left-right coordination score is {symmetry:.1f}/100.",
         f"Motion smoothness score is {smoothness:.1f}/100.",
     ]
-    low_joints = [name for name, score in sorted(joint_scores.items(), key=lambda item: item[1]) if score < 75]
+    if active_joints:
+        feedback.append("Primary movement joints: " + ", ".join(active_joints[:4]).replace("_", " ") + ".")
+    low_joints = [
+        name for name, score in sorted(joint_scores.items(), key=lambda item: item[1]) if score < 70
+    ]
     if low_joints:
         feedback.append(
-            "Lowest-quality joints: " + ", ".join(low_joints[:3]).replace("_", " ") + "."
+            "Most limited joints: " + ", ".join(low_joints[:3]).replace("_", " ") + "."
         )
+    else:
+        feedback.append("No major joint-specific form deficits were detected in the measured sequence.")
     return feedback
 
 
-def analyze_pose(sequence: PoseSequence, limitations: List[Limitation], exercises, base_dir: Path) -> AnalysisReport:
+def analyze_pose(sequence: PoseSequence, limitations: List[Limitation], exercises) -> AnalysisReport:
     series = compute_joint_series(sequence)
-    matched_reference, joint_scores, reference_score = match_reference(series, base_dir)
+    all_joint_scores = mobility_scores(series)
+    active_joints = active_joint_names(series)
+    joint_scores = {name: score for name, score in all_joint_scores.items() if name in active_joints}
+    mobility_score = sum(joint_scores.values()) / len(joint_scores) if joint_scores else 0.0
     symmetry = symmetry_score(series)
-    smoothness = smoothness_score(series)
-    joint_component = sum(joint_scores.values()) / len(joint_scores) if joint_scores else 0.0
-    limitation_penalty = 5.0 * len(limitations)
-    overall = max(0.0, min(100.0, 0.55 * reference_score + 0.25 * symmetry + 0.20 * smoothness - limitation_penalty))
-    feedback = infer_feedback(matched_reference, reference_score, symmetry, smoothness, joint_scores)
+    smoothness = smoothness_score(series, active_joints=active_joints)
+    limitation_penalty = min(18.0, 3.0 * len(limitations))
+    overall = max(
+        0.0,
+        min(100.0, 0.55 * mobility_score + 0.20 * symmetry + 0.25 * smoothness - limitation_penalty),
+    )
+    feedback = infer_feedback(overall, mobility_score, symmetry, smoothness, joint_scores, active_joints)
+    metadata = dict(sequence.metadata)
+    metadata["analysis_mode"] = "form_only"
+    metadata["mobility_score"] = f"{mobility_score:.1f}"
+    metadata["active_joints"] = ",".join(active_joints)
+    metadata["reference_source"] = "calibrated_rom"
     return AnalysisReport(
         label=sequence.label,
-        inferred_action=matched_reference,
+        inferred_action="form_analysis",
         overall_score=overall,
-        reference_score=reference_score,
+        reference_score=mobility_score,
         symmetry_score=symmetry,
         smoothness_score=smoothness,
         joint_scores=joint_scores,
@@ -155,6 +189,6 @@ def analyze_pose(sequence: PoseSequence, limitations: List[Limitation], exercise
         limitations=limitations,
         exercises=exercises,
         feedback=feedback,
-        matched_reference=matched_reference,
-        metadata=sequence.metadata,
+        matched_reference=None,
+        metadata=metadata,
     )

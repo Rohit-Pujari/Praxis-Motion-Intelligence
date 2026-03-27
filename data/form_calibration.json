@@ -1,0 +1,37 @@
+{
+  "generated_at_utc": "2026-03-27T17:35:00Z",
+  "source": "dataset-informed heuristic calibration",
+  "dataset_dir": "dataset",
+  "class_counts": {
+    "JumpingJack": 123,
+    "Lunges": 127,
+    "PullUps": 100,
+    "PushUps": 102,
+    "WallPushups": 130
+  },
+  "notes": [
+    "Targets were tuned to the exercise families present in the local dataset rather than using the earlier generic defaults.",
+    "Upper-limb targets are emphasized because PullUps, PushUps, and WallPushups dominate the dataset.",
+    "Lower-limb targets are raised to reflect the lunge content while remaining practical for form analysis."
+  ],
+  "target_rom": {
+    "left_elbow_flexion": 58.0,
+    "right_elbow_flexion": 58.0,
+    "left_shoulder_abduction": 72.0,
+    "right_shoulder_abduction": 72.0,
+    "left_hip_flexion": 38.0,
+    "right_hip_flexion": 38.0,
+    "left_knee_flexion": 52.0,
+    "right_knee_flexion": 52.0
+  },
+  "minimum_rom": {
+    "left_elbow_flexion": 32.0,
+    "right_elbow_flexion": 32.0,
+    "left_shoulder_abduction": 36.0,
+    "right_shoulder_abduction": 36.0,
+    "left_hip_flexion": 24.0,
+    "right_hip_flexion": 24.0,
+    "left_knee_flexion": 34.0,
+    "right_knee_flexion": 34.0
+  }
+}

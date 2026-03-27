@@ -1,0 +1,15 @@
+[project]
+name = "praxis"
+version = "0.1.0"
+description = "AI-powered human action analysis for physiotherapy movement assessment"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "jinja2>=3.1.6",
+    "numpy>=2.4.3",
+    "mediapipe>=0.10.33",
+    "h5py>=3.16.0",
+]
+
+[project.scripts]
+praxis = "main:main"

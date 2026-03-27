@@ -3,8 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
+from .calibration import get_minimum_rom_overrides
 from .models import ExerciseGuide, JointSeries, Limitation
-from .reference_data import load_stroke_rules
+from .reference_data import load_stroke_rules, load_stroke_thresholds
 
 
 def detect_limitations(
@@ -13,6 +14,8 @@ def detect_limitations(
     relevant_joints: Optional[Set[str]] = None,
 ) -> List[Limitation]:
     rules = load_stroke_rules(base_dir)
+    overrides = get_minimum_rom_overrides()
+    threshold_stats = load_stroke_thresholds(base_dir).get("joint_thresholds", {})
     limitations: List[Limitation] = []
 
     for joint_name, rule in rules["joint_rom_thresholds"].items():
@@ -21,16 +24,17 @@ def detect_limitations(
         if joint_name not in series:
             continue
         rom = series[joint_name].rom
-        if rom < rule["minimum_rom"]:
+        stat_rule = threshold_stats.get(joint_name, {})
+        minimum_rom = float(overrides.get(joint_name, stat_rule.get("minimum_rom", rule["minimum_rom"])))
+        if rom < minimum_rom:
             limitations.append(
                 Limitation(
                     joint=joint_name,
-                    severity="moderate" if rom > rule["minimum_rom"] * 0.7 else "high",
+                    severity="moderate" if rom > minimum_rom * 0.7 else "high",
                     description=rule["description"],
-                    evidence=f"Observed ROM {rom:.1f} deg, expected at least {rule['minimum_rom']:.1f} deg.",
+                    evidence=f"Observed ROM {rom:.1f} deg, expected at least {minimum_rom:.1f} deg.",
                 )
             )
-
     asymmetry_pairs = rules["asymmetry_pairs"]
     for pair in asymmetry_pairs:
         left = pair["left"]
@@ -124,6 +128,4 @@ def recommend_exercises(limitations: List[Limitation], inferred_action: str) -> 
         recommended.append(exercise_bank["knee_flexion"])
     if "/" in limitation_text or len(limitations) > 1:
         recommended.append(exercise_bank["symmetry"])
-    if not recommended and "walk" in inferred_action:
-        recommended.extend([exercise_bank["hip_flexion"], exercise_bank["knee_flexion"]])
     return recommended[:4]

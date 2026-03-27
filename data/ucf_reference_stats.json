@@ -1,0 +1,60 @@
+{
+  "source": "/home/rohitpujari/Documents/praxis/dataset/UCF101",
+  "per_class_counts": {
+    "JumpingJack": 1,
+    "Lunges": 0,
+    "PullUps": 0,
+    "PushUps": 0,
+    "WallPushups": 0
+  },
+  "joint_stats": {
+    "left_elbow_flexion": {
+      "rom_mean": 102.6,
+      "rom_std": 0.0,
+      "mean_angle_mean": 137.84,
+      "mean_angle_std": 0.0
+    },
+    "left_hip_flexion": {
+      "rom_mean": 26.39,
+      "rom_std": 0.0,
+      "mean_angle_mean": 165.98,
+      "mean_angle_std": 0.0
+    },
+    "left_knee_flexion": {
+      "rom_mean": 40.06,
+      "rom_std": 0.0,
+      "mean_angle_mean": 128.48,
+      "mean_angle_std": 0.0
+    },
+    "left_shoulder_abduction": {
+      "rom_mean": 161.53,
+      "rom_std": 0.0,
+      "mean_angle_mean": 83.51,
+      "mean_angle_std": 0.0
+    },
+    "right_elbow_flexion": {
+      "rom_mean": 85.84,
+      "rom_std": 0.0,
+      "mean_angle_mean": 123.68,
+      "mean_angle_std": 0.0
+    },
+    "right_hip_flexion": {
+      "rom_mean": 22.29,
+      "rom_std": 0.0,
+      "mean_angle_mean": 168.99,
+      "mean_angle_std": 0.0
+    },
+    "right_knee_flexion": {
+      "rom_mean": 35.99,
+      "rom_std": 0.0,
+      "mean_angle_mean": 125.6,
+      "mean_angle_std": 0.0
+    },
+    "right_shoulder_abduction": {
+      "rom_mean": 142.98,
+      "rom_std": 0.0,
+      "mean_angle_mean": 75.48,
+      "mean_angle_std": 0.0
+    }
+  }
+}
