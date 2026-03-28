@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 const emptyState = {
   videoFile: null,
   landmarksJson: "",
+  conditionProfile: "normal",
 };
 
 const panelClass =
@@ -50,6 +51,7 @@ function App() {
       if (formState.landmarksJson.trim()) {
         body.append("landmarks_json", formState.landmarksJson.trim());
       }
+      body.append("condition_profile", formState.conditionProfile);
 
       const response = await fetch("/api/analyze", {
         method: "POST",
@@ -147,6 +149,26 @@ function App() {
                 locally for comparison.
               </p>
             </div>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-slate-300">
+                Condition profile
+              </span>
+              <select
+                value={formState.conditionProfile}
+                onChange={(event) =>
+                  setFormState((current) => ({
+                    ...current,
+                    conditionProfile: event.target.value,
+                  }))
+                }
+                className="block w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200 outline-none transition focus:border-cyan-400/40"
+              >
+                <option value="normal">Normal</option>
+                <option value="injury_recovery">Injury Recovery</option>
+                <option value="neurological_condition">Neurological Condition</option>
+              </select>
+            </label>
 
             <label className="block">
               <span className="mb-2 block text-sm font-medium text-slate-300">
@@ -450,6 +472,7 @@ function ReportView({ report, originalVideoUrl, previousSession }) {
   const jointCharts = report.joint_charts || [];
   const annotations = report.annotations || [];
   const repSummary = report.rep_summary || [];
+  const jointStatus = report.joint_status || {};
   const overlayVideoUrl = report.overlay_video
     ? `data:${report.overlay_video_mime || "video/mp4"};base64,${report.overlay_video}`
     : "";
@@ -517,8 +540,67 @@ function ReportView({ report, originalVideoUrl, previousSession }) {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
+        <Panel title="Condition Interpretation">
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
+                Selected profile
+              </p>
+              <strong className="mt-2 block text-lg text-white">
+                {prettyName(report.selected_condition || metadata.selected_condition)}
+              </strong>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
+                Overall condition
+              </p>
+              <strong className="mt-2 block text-lg text-white">
+                {report.overall_condition || "Normal"}
+              </strong>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
+                Injury profile provenance
+              </p>
+              <p className="mt-2 text-sm leading-6 text-slate-300">
+                {metadata.injury_profile_source || "Not available"}
+              </p>
+              {metadata.injury_profile_csv ? (
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  CSV: {metadata.injury_profile_csv}
+                </p>
+              ) : null}
+              {metadata.injury_profile_rows || metadata.injury_profile_blend ? (
+                <p className="text-sm leading-6 text-slate-400">
+                  Rows: {metadata.injury_profile_rows || "0"} | Blend: {metadata.injury_profile_blend || "n/a"}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </Panel>
+
         <Panel title="Session Comparison">
           <SessionComparison report={report} previousSession={previousSession} />
+        </Panel>
+
+        <Panel title="Joint Status">
+          {Object.keys(jointStatus).length ? (
+            <div className="flex flex-wrap gap-3">
+              {Object.entries(jointStatus).map(([jointName, status]) => (
+                <div
+                  key={jointName}
+                  className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm"
+                >
+                  <strong className="text-white">{prettyName(jointName)}</strong>
+                  <span className={`ml-2 ${statusColorClass(status)}`}>{status}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm leading-7 text-slate-400">
+              Joint-level condition status is unavailable for this report.
+            </p>
+          )}
         </Panel>
 
         <Panel title="Repetition Summary">
@@ -998,6 +1080,16 @@ function formatSeconds(value) {
 function formatDelta(value) {
   const numeric = Number(value) || 0;
   return `${numeric >= 0 ? "+" : ""}${numeric.toFixed(1)}`;
+}
+
+function statusColorClass(status) {
+  if (status === "Severe Limitation") {
+    return "text-rose-300";
+  }
+  if (status === "Injury Recovery") {
+    return "text-amber-300";
+  }
+  return "text-emerald-300";
 }
 
 function readStoredSession() {

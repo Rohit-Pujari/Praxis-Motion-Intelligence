@@ -15,6 +15,7 @@ from .models import (
     PoseSequence,
     RepSummary,
 )
+from .reference_data import load_injury_profile, load_normal_profile, load_stroke_profile
 
 
 ANGLE_TRIPLETS: Dict[str, Tuple[str, str, str]] = {
@@ -26,6 +27,18 @@ ANGLE_TRIPLETS: Dict[str, Tuple[str, str, str]] = {
     "right_hip_flexion": ("right_shoulder", "right_hip", "right_knee"),
     "left_knee_flexion": ("left_hip", "left_knee", "left_ankle"),
     "right_knee_flexion": ("right_hip", "right_knee", "right_ankle"),
+}
+
+STATUS_COLORS = {
+    "Normal": "green",
+    "Injury Recovery": "yellow",
+    "Severe Limitation": "red",
+}
+
+CONDITION_TOLERANCE = {
+    "normal": 1.0,
+    "injury_recovery": 1.12,
+    "neurological_condition": 1.25,
 }
 
 def _vector(a: Landmark, b: Landmark) -> np.ndarray:
@@ -166,6 +179,163 @@ def infer_feedback(
     return feedback
 
 
+def summarize_joint_stats(series: Dict[str, JointSeries]) -> Dict[str, dict]:
+    summary: Dict[str, dict] = {}
+    for joint_name, joint in series.items():
+        summary[joint_name] = {
+            "mean_angle": joint.mean,
+            "rom": joint.rom,
+            "minimum": joint.minimum,
+            "maximum": joint.maximum,
+        }
+    return summary
+
+
+def profile_distance(stats: dict, profile: dict) -> float:
+    angle_std = max(float(profile.get("angle_std", 8.0)), 1.0)
+    rom_std = max(float(profile.get("rom_std", 8.0)), 1.0)
+    angle_distance = abs(float(stats["mean_angle"]) - float(profile.get("mean_angle", stats["mean_angle"]))) / angle_std
+    rom_distance = abs(float(stats["rom"]) - float(profile.get("rom_mean", stats["rom"]))) / rom_std
+    return angle_distance + rom_distance
+
+
+def _joint_profile(payload: dict, joint_name: str) -> dict:
+    return (payload.get("joint_profiles") or {}).get(joint_name, {})
+
+
+def _condition_label(selected_condition: str) -> str:
+    return {
+        "normal": "Normal",
+        "injury_recovery": "Injury Recovery",
+        "neurological_condition": "Neurological Condition",
+    }.get(selected_condition, "Normal")
+
+
+def classify_joint_status(
+    series: Dict[str, JointSeries],
+    base_dir,
+    selected_condition: str,
+) -> tuple[Dict[str, str], Dict[str, float], Dict[str, str]]:
+    normal_profile = load_normal_profile(base_dir)
+    injury_profile = load_injury_profile(base_dir)
+    stroke_profile = load_stroke_profile(base_dir)
+    tolerance = CONDITION_TOLERANCE.get(selected_condition, 1.0)
+    joint_stats = summarize_joint_stats(series)
+    joint_status: Dict[str, str] = {}
+    joint_deviation: Dict[str, float] = {}
+    joint_overlay_colors: Dict[str, str] = {}
+
+    landmark_map = {
+        "left_shoulder_abduction": ["left_shoulder"],
+        "right_shoulder_abduction": ["right_shoulder"],
+        "left_elbow_flexion": ["left_elbow", "left_wrist"],
+        "right_elbow_flexion": ["right_elbow", "right_wrist"],
+        "left_hip_flexion": ["left_hip"],
+        "right_hip_flexion": ["right_hip"],
+        "left_knee_flexion": ["left_knee", "left_ankle"],
+        "right_knee_flexion": ["right_knee", "right_ankle"],
+    }
+
+    for joint_name, stats in joint_stats.items():
+        normal_joint = _joint_profile(normal_profile, joint_name)
+        injury_joint = _joint_profile(injury_profile, joint_name) or normal_joint
+        stroke_joint = _joint_profile(stroke_profile, joint_name) or injury_joint
+        if not normal_joint:
+            continue
+
+        normal_distance = profile_distance(stats, normal_joint)
+        injury_distance = profile_distance(stats, injury_joint)
+        stroke_distance = profile_distance(stats, stroke_joint)
+        rom_baseline = max(float(normal_joint.get("rom_mean", stats["rom"])), 1.0)
+        rom_ratio = float(stats["rom"]) / rom_baseline
+        joint_deviation[joint_name] = round(normal_distance, 2)
+
+        if normal_distance <= 1.35 * tolerance and rom_ratio >= 0.78 / tolerance:
+            status = "Normal"
+        elif injury_distance <= stroke_distance * 1.05 or rom_ratio >= 0.55 / tolerance:
+            status = "Injury Recovery"
+        else:
+            status = "Severe Limitation"
+
+        joint_status[joint_name] = status
+        for landmark_name in landmark_map.get(joint_name, []):
+            joint_overlay_colors[landmark_name] = STATUS_COLORS[status]
+
+    return joint_status, joint_deviation, joint_overlay_colors
+
+
+def infer_overall_condition(joint_status: Dict[str, str]) -> str:
+    counts = {
+        "Normal": sum(1 for value in joint_status.values() if value == "Normal"),
+        "Injury Recovery": sum(1 for value in joint_status.values() if value == "Injury Recovery"),
+        "Severe Limitation": sum(1 for value in joint_status.values() if value == "Severe Limitation"),
+    }
+    if counts["Severe Limitation"] >= 2:
+        return "Neurological Limitation"
+    if counts["Severe Limitation"] >= 1 or counts["Injury Recovery"] >= 2:
+        return "Injury Recovery"
+    return "Normal"
+
+
+def build_condition_feedback(
+    series: Dict[str, JointSeries],
+    joint_status: Dict[str, str],
+    base_dir,
+) -> List[str]:
+    normal_profile = load_normal_profile(base_dir)
+    feedback: List[str] = []
+    joint_stats = summarize_joint_stats(series)
+
+    for joint_name, status in joint_status.items():
+        normal_joint = _joint_profile(normal_profile, joint_name)
+        if not normal_joint:
+            continue
+        stats = joint_stats[joint_name]
+        normal_rom = float(normal_joint.get("rom_mean", stats["rom"]))
+        normal_mean = float(normal_joint.get("mean_angle", stats["mean_angle"]))
+        angle_std = max(float(normal_joint.get("angle_std", 8.0)), 1.0)
+
+        if stats["rom"] < normal_rom * 0.8:
+            feedback.append(f"Reduced Range of Motion noted at {joint_name.replace('_', ' ')} relative to the UCF101 baseline.")
+        if stats["maximum"] > normal_mean + angle_std * 2.0:
+            feedback.append(f"Possible Overextension detected at {joint_name.replace('_', ' ')} during peak excursion.")
+        if status == "Severe Limitation":
+            feedback.append(f"{joint_name.replace('_', ' ')} shows a deviation pattern closer to severe stroke-like limitation than to normal movement.")
+        elif status == "Injury Recovery":
+            feedback.append(f"{joint_name.replace('_', ' ')} remains outside the normal UCF101 range but fits an injury-recovery level deviation.")
+
+    paired_joints = [
+        ("left_elbow_flexion", "right_elbow_flexion"),
+        ("left_shoulder_abduction", "right_shoulder_abduction"),
+        ("left_hip_flexion", "right_hip_flexion"),
+        ("left_knee_flexion", "right_knee_flexion"),
+    ]
+    for left_name, right_name in paired_joints:
+        left_joint = series.get(left_name)
+        right_joint = series.get(right_name)
+        if left_joint is None or right_joint is None:
+            continue
+        rom_diff = abs(left_joint.rom - right_joint.rom)
+        if rom_diff >= 12.0:
+            feedback.append(f"Asymmetry is present between {left_name.replace('_', ' ')} and {right_name.replace('_', ' ')}.")
+
+    compensation_pairs = [
+        ("left_shoulder_abduction", "left_elbow_flexion"),
+        ("right_shoulder_abduction", "right_elbow_flexion"),
+        ("left_hip_flexion", "left_knee_flexion"),
+        ("right_hip_flexion", "right_knee_flexion"),
+    ]
+    for primary_joint, secondary_joint in compensation_pairs:
+        primary_status = joint_status.get(primary_joint)
+        secondary_status = joint_status.get(secondary_joint)
+        if primary_status in {"Injury Recovery", "Severe Limitation"} and secondary_status == "Normal":
+            feedback.append(
+                f"Compensation pattern suspected: {secondary_joint.replace('_', ' ')} stays relatively preserved while {primary_joint.replace('_', ' ')} is restricted."
+            )
+
+    return feedback[:10]
+
+
 def estimate_rep_summary(
     series: Dict[str, JointSeries],
     active_joints: List[str],
@@ -293,7 +463,13 @@ def build_motion_annotations(
     return annotations[:10]
 
 
-def analyze_pose(sequence: PoseSequence, limitations: List[Limitation], exercises) -> AnalysisReport:
+def analyze_pose(
+    sequence: PoseSequence,
+    limitations: List[Limitation],
+    exercises,
+    base_dir=None,
+    selected_condition: str = "normal",
+) -> AnalysisReport:
     series = compute_joint_series(sequence)
     all_joint_scores = mobility_scores(series)
     active_joints = active_joint_names(series)
@@ -307,6 +483,14 @@ def analyze_pose(sequence: PoseSequence, limitations: List[Limitation], exercise
         min(100.0, 0.55 * mobility_score + 0.20 * symmetry + 0.25 * smoothness - limitation_penalty),
     )
     feedback = infer_feedback(overall, mobility_score, symmetry, smoothness, joint_scores, active_joints)
+    joint_status: Dict[str, str] = {}
+    joint_deviation: Dict[str, float] = {}
+    joint_overlay_colors: Dict[str, str] = {}
+    overall_condition = "Normal"
+    if base_dir is not None:
+        joint_status, joint_deviation, joint_overlay_colors = classify_joint_status(series, base_dir, selected_condition)
+        overall_condition = infer_overall_condition(joint_status)
+        feedback.extend(build_condition_feedback(series, joint_status, base_dir))
     annotations = build_motion_annotations(sequence, series, active_joints, limitations)
     rep_summary = estimate_rep_summary(series, active_joints)
     metadata = dict(sequence.metadata)
@@ -315,6 +499,21 @@ def analyze_pose(sequence: PoseSequence, limitations: List[Limitation], exercise
     metadata["active_joints"] = ",".join(active_joints)
     metadata["calibration_source"] = "calibrated_rom"
     metadata["duration_seconds"] = f"{(sequence.frames[-1].timestamp if sequence.frames else 0.0):.2f}"
+    metadata["selected_condition"] = _condition_label(selected_condition)
+    metadata["overall_condition"] = overall_condition
+    if base_dir is not None:
+        normal_profile = load_normal_profile(base_dir)
+        injury_profile = load_injury_profile(base_dir)
+        stroke_profile = load_stroke_profile(base_dir)
+        metadata["normal_profile_source"] = str(normal_profile.get("source", ""))
+        metadata["injury_profile_source"] = str(injury_profile.get("source", ""))
+        metadata["stroke_profile_source"] = str(stroke_profile.get("source", ""))
+        if injury_profile.get("csv_source"):
+            metadata["injury_profile_csv"] = str(injury_profile.get("csv_source"))
+        if injury_profile.get("csv_rows") is not None:
+            metadata["injury_profile_rows"] = str(injury_profile.get("csv_rows"))
+        if injury_profile.get("severity_blend") is not None:
+            metadata["injury_profile_blend"] = str(injury_profile.get("severity_blend"))
     return AnalysisReport(
         label=sequence.label,
         inferred_action="form_analysis",
@@ -327,6 +526,11 @@ def analyze_pose(sequence: PoseSequence, limitations: List[Limitation], exercise
         limitations=limitations,
         exercises=exercises,
         feedback=feedback,
+        selected_condition=selected_condition,
+        overall_condition=overall_condition,
+        joint_status=joint_status,
+        joint_deviation=joint_deviation,
+        joint_overlay_colors=joint_overlay_colors,
         annotations=annotations,
         rep_summary=rep_summary,
         metadata=metadata,

@@ -1,0 +1,53 @@
+{
+  "source": "UCF101-derived normal movement profile",
+  "joint_profiles": {
+    "left_elbow_flexion": {
+      "mean_angle": 137.84,
+      "angle_std": 8.0,
+      "rom_mean": 102.6,
+      "rom_std": 8.0
+    },
+    "left_hip_flexion": {
+      "mean_angle": 165.98,
+      "angle_std": 8.0,
+      "rom_mean": 26.39,
+      "rom_std": 8.0
+    },
+    "left_knee_flexion": {
+      "mean_angle": 128.48,
+      "angle_std": 8.0,
+      "rom_mean": 40.06,
+      "rom_std": 8.0
+    },
+    "left_shoulder_abduction": {
+      "mean_angle": 83.51,
+      "angle_std": 8.0,
+      "rom_mean": 161.53,
+      "rom_std": 8.0
+    },
+    "right_elbow_flexion": {
+      "mean_angle": 123.68,
+      "angle_std": 8.0,
+      "rom_mean": 85.84,
+      "rom_std": 8.0
+    },
+    "right_hip_flexion": {
+      "mean_angle": 168.99,
+      "angle_std": 8.0,
+      "rom_mean": 22.29,
+      "rom_std": 8.0
+    },
+    "right_knee_flexion": {
+      "mean_angle": 125.6,
+      "angle_std": 8.0,
+      "rom_mean": 35.99,
+      "rom_std": 8.0
+    },
+    "right_shoulder_abduction": {
+      "mean_angle": 75.48,
+      "angle_std": 8.0,
+      "rom_mean": 142.98,
+      "rom_std": 8.0
+    }
+  }
+}

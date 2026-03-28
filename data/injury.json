@@ -1,0 +1,56 @@
+{
+  "source": "Moderate injury-recovery profile calibrated with multimodal_sports_injury_dataset.csv and anchored between UCF101 normal and severe stroke reference anchors",
+  "csv_source": "/home/rohitpujari/Documents/praxis/multimodal_sports_injury_dataset.csv",
+  "csv_rows": 15420,
+  "severity_blend": 0.402,
+  "joint_profiles": {
+    "left_elbow_flexion": {
+      "mean_angle": 98.04,
+      "angle_std": 8.99,
+      "rom_mean": 66.64,
+      "rom_std": 7.99
+    },
+    "left_hip_flexion": {
+      "mean_angle": 104.39,
+      "angle_std": 8.99,
+      "rom_mean": 20.55,
+      "rom_std": 7.99
+    },
+    "left_knee_flexion": {
+      "mean_angle": 84.93,
+      "angle_std": 8.99,
+      "rom_mean": 31.2,
+      "rom_std": 7.99
+    },
+    "left_shoulder_abduction": {
+      "mean_angle": 46.17,
+      "angle_std": 8.99,
+      "rom_mean": 103.69,
+      "rom_std": 7.99
+    },
+    "right_elbow_flexion": {
+      "mean_angle": 89.57,
+      "angle_std": 8.99,
+      "rom_mean": 56.62,
+      "rom_std": 7.99
+    },
+    "right_hip_flexion": {
+      "mean_angle": 106.19,
+      "angle_std": 8.99,
+      "rom_mean": 17.36,
+      "rom_std": 7.99
+    },
+    "right_knee_flexion": {
+      "mean_angle": 83.21,
+      "angle_std": 8.99,
+      "rom_mean": 28.03,
+      "rom_std": 7.99
+    },
+    "right_shoulder_abduction": {
+      "mean_angle": 41.37,
+      "angle_std": 8.99,
+      "rom_mean": 92.6,
+      "rom_std": 7.99
+    }
+  }
+}

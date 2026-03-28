@@ -97,6 +97,11 @@ class AnalysisReport:
     limitations: List[Limitation]
     exercises: List[ExerciseGuide]
     feedback: List[str]
+    selected_condition: str = "normal"
+    overall_condition: str = "Normal"
+    joint_status: Dict[str, str] = field(default_factory=dict)
+    joint_deviation: Dict[str, float] = field(default_factory=dict)
+    joint_overlay_colors: Dict[str, str] = field(default_factory=dict)
     annotations: List[MotionAnnotation] = field(default_factory=list)
     rep_summary: List[RepSummary] = field(default_factory=list)
     metadata: Dict[str, str] = field(default_factory=dict)

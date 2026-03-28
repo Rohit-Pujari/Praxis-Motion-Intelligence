@@ -314,6 +314,7 @@ SKELETON_CONNECTIONS: List[Tuple[str, str]] = [
 def generate_overlay_video(
     video_path: Path,
     sequence: PoseSequence,
+    joint_overlay_colors: Optional[Dict[str, str]] = None,
     output_width: int = 640,
     output_fps: float = 15.0,
 ) -> Optional[Tuple[str, str]]:
@@ -384,7 +385,13 @@ def generate_overlay_video(
         # Draw skeleton if we have landmarks
         if pose_index < total_pose_frames:
             landmarks = frame_landmarks[pose_index]
-            _draw_skeleton(frame, landmarks, output_width, output_height)
+            _draw_skeleton(
+                frame,
+                landmarks,
+                output_width,
+                output_height,
+                joint_overlay_colors=joint_overlay_colors,
+            )
 
         out.write(frame)
         frame_index += 1
@@ -447,6 +454,7 @@ def _draw_skeleton(
     landmarks: Dict[str, Landmark],
     width: int,
     height: int,
+    joint_overlay_colors: Optional[Dict[str, str]] = None,
 ) -> None:
     """Draw stickman skeleton on frame."""
     import cv2  # type: ignore
@@ -479,6 +487,11 @@ def _draw_skeleton(
         ("right_hip", "right_knee"): colors["right_leg"],
         ("right_knee", "right_ankle"): colors["right_leg"],
     }
+    severity_colors = {
+        "green": (0, 255, 0),
+        "yellow": (0, 215, 255),
+        "red": (0, 0, 255),
+    }
 
     # Convert normalized coordinates to pixel coordinates
     points = {}
@@ -491,10 +504,18 @@ def _draw_skeleton(
     for start_name, end_name in SKELETON_CONNECTIONS:
         if start_name in points and end_name in points:
             color = connection_colors.get((start_name, end_name), (0, 255, 255))
+            start_color = severity_colors.get((joint_overlay_colors or {}).get(start_name, ""), color)
+            end_color = severity_colors.get((joint_overlay_colors or {}).get(end_name, ""), color)
+            if start_color == severity_colors["red"] or end_color == severity_colors["red"]:
+                color = severity_colors["red"]
+            elif start_color == severity_colors["yellow"] or end_color == severity_colors["yellow"]:
+                color = severity_colors["yellow"]
+            elif start_color == severity_colors["green"] or end_color == severity_colors["green"]:
+                color = severity_colors["green"]
             cv2.line(frame, points[start_name], points[end_name], color, 3, cv2.LINE_AA)
 
     # Draw joint points
-    joint_color = (255, 255, 255)  # White
     for name, point in points.items():
+        joint_color = severity_colors.get((joint_overlay_colors or {}).get(name, ""), (255, 255, 255))
         cv2.circle(frame, point, 5, joint_color, -1, cv2.LINE_AA)
         cv2.circle(frame, point, 3, (0, 0, 0), -1, cv2.LINE_AA)

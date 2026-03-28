@@ -85,6 +85,7 @@ class PraxisHandler(BaseHTTPRequestHandler):
         else:
             landmarks_json = str(landmarks_input).strip()
         video_file = form.get("video_file")
+        condition_profile = str(form.get("condition_profile", "normal")).strip() or "normal"
 
         if landmarks_json:
             temp_json = None
@@ -129,12 +130,22 @@ class PraxisHandler(BaseHTTPRequestHandler):
         limitations = detect_limitations(joint_series, BASE_DIR, relevant_joints=relevant_joints or None)
         exercises = recommend_exercises(limitations, "")
 
-        report = analyze_pose(sequence, limitations, exercises)
+        report = analyze_pose(
+            sequence,
+            limitations,
+            exercises,
+            base_dir=BASE_DIR,
+            selected_condition=condition_profile,
+        )
         result = serialize_report(report)
 
         # Generate overlay video if we had a video input
         if temp_video is not None and temp_video.exists():
-            overlay_video = generate_overlay_video(temp_video, sequence)
+            overlay_video = generate_overlay_video(
+                temp_video,
+                sequence,
+                joint_overlay_colors=report.joint_overlay_colors,
+            )
             if overlay_video:
                 overlay_mime, overlay_base64 = overlay_video
                 result["overlay_video"] = overlay_base64
