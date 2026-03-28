@@ -95,9 +95,6 @@ function App() {
           <div className={`${panelClass} relative overflow-hidden p-7 sm:p-10`}>
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(34,211,238,0.18),transparent_24%),radial-gradient(circle_at_85%_15%,rgba(129,140,248,0.18),transparent_26%)]" />
             <div className="relative">
-              <span className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.32em] text-cyan-300">
-                AI Physiotherapy Motion Lab
-              </span>
               <h1 className="mt-5 max-w-4xl text-4xl font-semibold leading-none tracking-[-0.06em] text-white sm:text-6xl lg:max-w-3xl lg:text-7xl">
                 Upload movement. Get an explainable recovery readout.
               </h1>
@@ -107,24 +104,10 @@ function App() {
                 surfaces stroke-oriented movement limitations with targeted rehab
                 guidance.
               </p>
-              <div className="mt-8 grid gap-3 sm:grid-cols-3">
-                <Metric label="Video-first" value="No demos" />
-                <Metric label="Analysis" value="Pose + kinematics" />
-                <Metric label="Output" value="Replay + charts" />
-              </div>
             </div>
           </div>
 
           <div className={`${panelClass} grid gap-4 p-6 sm:p-7`}>
-            <div className="rounded-[22px] border border-white/10 bg-slate-900/80 p-5">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.3em] text-cyan-300">
-                System focus
-              </span>
-              <p className="mt-3 text-sm leading-7 text-slate-300">
-                Bilateral symmetry, range of motion, movement smoothness, rep
-                rhythm, and time-anchored clinical annotations.
-              </p>
-            </div>
             <div className="grid min-h-56 content-center gap-5 rounded-[22px] border border-white/10 bg-slate-950/90 p-5">
               <div className="h-2 rounded-full bg-gradient-to-r from-cyan-300 via-cyan-400 to-emerald-300 shadow-[0_0_30px_rgba(34,211,238,0.25)]" />
               <div className="h-2 w-2/3 rounded-full bg-gradient-to-r from-indigo-300 via-indigo-400 to-cyan-300 shadow-[0_0_30px_rgba(129,140,248,0.25)]" />
@@ -144,9 +127,7 @@ function App() {
                 Analysis Input
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                Provide a patient video or a landmark sequence. The app only
-                analyzes the submitted input and now stores the previous result
-                locally for comparison.
+                Provide a patient video or a landmark sequence to analyze.
               </p>
             </div>
 
@@ -265,19 +246,6 @@ function App() {
           </section>
         </section>
       </div>
-    </div>
-  );
-}
-
-function Metric({ label, value }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
-      <span className="block text-xs uppercase tracking-[0.22em] text-slate-400">
-        {label}
-      </span>
-      <strong className="mt-2 block text-base font-medium text-white">
-        {value}
-      </strong>
     </div>
   );
 }
@@ -511,10 +479,7 @@ function ReportView({ report, originalVideoUrl, previousSession }) {
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-center">
-        <CircularScore score={report.overall_score} band={report.score_band} />
-
-        <div>
+      <div>
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
@@ -531,7 +496,6 @@ function ReportView({ report, originalVideoUrl, previousSession }) {
             The uploaded motion was scored for mobility, symmetry, smoothness,
             repetition rhythm, and clinically relevant events across the replay.
           </p>
-        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -558,34 +522,6 @@ function ReportView({ report, originalVideoUrl, previousSession }) {
               <strong className="mt-2 block text-lg text-white">
                 {report.overall_condition || "Normal"}
               </strong>
-              {report.model_prediction ? (
-                <p className="mt-2 text-sm leading-6 text-slate-400">
-                  Basic model says: {report.model_prediction}
-                </p>
-              ) : null}
-              {report.deep_model_prediction ? (
-                <p className="text-sm leading-6 text-slate-400">
-                  ST-GCN + LSTM says: {report.deep_model_prediction} ({report.deep_model_confidence}% confidence)
-                </p>
-              ) : null}
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
-                Injury profile provenance
-              </p>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
-                {metadata.injury_profile_source || "Not available"}
-              </p>
-              {metadata.injury_profile_csv ? (
-                <p className="mt-2 text-sm leading-6 text-slate-400">
-                  CSV: {metadata.injury_profile_csv}
-                </p>
-              ) : null}
-              {metadata.injury_profile_rows || metadata.injury_profile_blend ? (
-                <p className="text-sm leading-6 text-slate-400">
-                  Rows: {metadata.injury_profile_rows || "0"} | Blend: {metadata.injury_profile_blend || "n/a"}
-                </p>
-              ) : null}
             </div>
           </div>
         </Panel>
@@ -894,7 +830,6 @@ function ReportView({ report, originalVideoUrl, previousSession }) {
                   <th className="px-3 py-3 font-medium">Min</th>
                   <th className="px-3 py-3 font-medium">Max</th>
                   <th className="px-3 py-3 font-medium">ROM</th>
-                  <th className="px-3 py-3 font-medium">Mean</th>
                 </tr>
               </thead>
               <tbody>
@@ -904,7 +839,6 @@ function ReportView({ report, originalVideoUrl, previousSession }) {
                     <td className="px-3 py-3">{row.minimum}</td>
                     <td className="px-3 py-3">{row.maximum}</td>
                     <td className="px-3 py-3">{row.rom}</td>
-                    <td className="px-3 py-3">{row.mean}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1030,63 +964,6 @@ function Kpi({ title, value }) {
       <strong className="mt-3 block break-words text-4xl font-semibold tracking-tight text-white">
         {value}
       </strong>
-    </div>
-  );
-}
-
-function CircularScore({ score, band }) {
-  const safeScore = Math.max(0, Math.min(100, Number(score) || 0));
-  const radius = 84;
-  const circumference = 2 * Math.PI * radius;
-  const dashOffset = circumference * (1 - safeScore / 100);
-  const strokeClass =
-    band === "excellent"
-      ? "stroke-emerald-400"
-      : band === "good"
-        ? "stroke-cyan-300"
-        : band === "watch"
-          ? "stroke-amber-300"
-          : "stroke-rose-400";
-
-  return (
-    <div className="relative mx-auto grid h-52 w-52 place-items-center">
-      <svg
-        className="-rotate-90 drop-shadow-[0_0_30px_rgba(56,189,248,0.16)]"
-        width="208"
-        height="208"
-        viewBox="0 0 208 208"
-        aria-hidden="true"
-      >
-        <circle
-          cx="104"
-          cy="104"
-          r={radius}
-          fill="none"
-          strokeWidth="14"
-          className="stroke-white/8"
-        />
-        <circle
-          cx="104"
-          cy="104"
-          r={radius}
-          fill="none"
-          strokeWidth="14"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={dashOffset}
-          className={strokeClass}
-        />
-      </svg>
-      <div className="absolute inset-[22px] grid place-items-center rounded-full border border-white/10 bg-slate-950/90 text-center shadow-[inset_0_0_30px_rgba(255,255,255,0.03)]">
-        <div>
-          <strong className="block text-5xl font-semibold text-white">
-            {safeScore.toFixed(1)}
-          </strong>
-          <span className="mt-2 block text-[11px] uppercase tracking-[0.3em] text-slate-400">
-            overall
-          </span>
-        </div>
-      </div>
     </div>
   );
 }
