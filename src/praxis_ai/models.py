@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 
 @dataclass
@@ -67,11 +67,29 @@ class ExerciseGuide:
 
 
 @dataclass
+class MotionAnnotation:
+    id: str
+    timestamp: float
+    title: str
+    detail: str
+    severity: str
+    joint: str
+
+
+@dataclass
+class RepSummary:
+    joint: str
+    repetitions: int
+    average_rom: float
+    rhythm_score: float
+
+
+@dataclass
 class AnalysisReport:
     label: str
     inferred_action: str
     overall_score: float
-    reference_score: float
+    mobility_score: float
     symmetry_score: float
     smoothness_score: float
     joint_scores: Dict[str, float]
@@ -79,5 +97,6 @@ class AnalysisReport:
     limitations: List[Limitation]
     exercises: List[ExerciseGuide]
     feedback: List[str]
+    annotations: List[MotionAnnotation] = field(default_factory=list)
+    rep_summary: List[RepSummary] = field(default_factory=list)
     metadata: Dict[str, str] = field(default_factory=dict)
-    matched_reference: Optional[str] = None

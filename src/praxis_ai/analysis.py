@@ -6,7 +6,15 @@ from typing import Dict, Iterable, List, Tuple
 import numpy as np
 
 from .calibration import get_target_rom
-from .models import AnalysisReport, JointSeries, Landmark, Limitation, PoseFrame, PoseSequence
+from .models import (
+    AnalysisReport,
+    JointSeries,
+    Landmark,
+    Limitation,
+    MotionAnnotation,
+    PoseSequence,
+    RepSummary,
+)
 
 
 ANGLE_TRIPLETS: Dict[str, Tuple[str, str, str]] = {
@@ -158,6 +166,133 @@ def infer_feedback(
     return feedback
 
 
+def estimate_rep_summary(
+    series: Dict[str, JointSeries],
+    active_joints: List[str],
+) -> List[RepSummary]:
+    summaries: List[RepSummary] = []
+    for joint_name in active_joints:
+        joint = series.get(joint_name)
+        if joint is None or len(joint.values) < 6:
+            continue
+        values = smooth_signal(np.asarray(joint.values, dtype=float), window=5)
+        threshold = float(np.percentile(values, 65))
+        peaks: List[int] = []
+        for index in range(1, len(values) - 1):
+            if values[index] > values[index - 1] and values[index] >= values[index + 1] and values[index] >= threshold:
+                if peaks and index - peaks[-1] < 3:
+                    if values[index] > values[peaks[-1]]:
+                        peaks[-1] = index
+                    continue
+                peaks.append(index)
+
+        reps = max(0, len(peaks))
+        if reps == 0:
+            continue
+
+        if len(peaks) > 1:
+            peak_gaps = np.diff(peaks).astype(float)
+            gap_ratio = float(np.std(peak_gaps) / max(np.mean(peak_gaps), 1.0))
+            rhythm_score = max(0.0, 100.0 - gap_ratio * 100.0)
+        else:
+            rhythm_score = 100.0
+
+        summaries.append(
+            RepSummary(
+                joint=joint_name,
+                repetitions=reps,
+                average_rom=round(joint.rom / reps, 1),
+                rhythm_score=round(rhythm_score, 1),
+            )
+        )
+    return summaries
+
+
+def build_motion_annotations(
+    sequence: PoseSequence,
+    series: Dict[str, JointSeries],
+    active_joints: List[str],
+    limitations: List[Limitation],
+) -> List[MotionAnnotation]:
+    annotations: List[MotionAnnotation] = []
+    duration = sequence.frames[-1].timestamp if sequence.frames else 0.0
+    annotation_index = 1
+
+    for limitation in limitations[:6]:
+        joint_name = limitation.joint.split("/")[0]
+        timestamp = duration * min(0.9, 0.12 * annotation_index)
+        if joint_name in series and series[joint_name].values:
+            values = np.asarray(series[joint_name].values, dtype=float)
+            min_index = int(np.argmin(values))
+            timestamp = duration * (min_index / max(len(values) - 1, 1))
+        annotations.append(
+            MotionAnnotation(
+                id=f"event-{annotation_index}",
+                timestamp=round(timestamp, 2),
+                title=f"{joint_name.replace('_', ' ')} limitation",
+                detail=f"{limitation.description} {limitation.evidence}",
+                severity=limitation.severity,
+                joint=limitation.joint,
+            )
+        )
+        annotation_index += 1
+
+    left_right_pairs = [
+        ("left_elbow_flexion", "right_elbow_flexion"),
+        ("left_shoulder_abduction", "right_shoulder_abduction"),
+        ("left_hip_flexion", "right_hip_flexion"),
+        ("left_knee_flexion", "right_knee_flexion"),
+    ]
+    for left_name, right_name in left_right_pairs:
+        left = series.get(left_name)
+        right = series.get(right_name)
+        if left is None or right is None:
+            continue
+        left_values = resample(left.values, 48)
+        right_values = resample(right.values, 48)
+        delta = np.abs(left_values - right_values)
+        peak_index = int(np.argmax(delta))
+        peak_delta = float(delta[peak_index])
+        if peak_delta < 12.0:
+            continue
+        annotations.append(
+            MotionAnnotation(
+                id=f"event-{annotation_index}",
+                timestamp=round(duration * (peak_index / max(len(delta) - 1, 1)), 2),
+                title="Asymmetry spike",
+                detail=(
+                    f"{left_name.replace('_', ' ')} vs {right_name.replace('_', ' ')} "
+                    f"diverged by {peak_delta:.1f} deg."
+                ),
+                severity="moderate" if peak_delta < 25 else "high",
+                joint=f"{left_name}/{right_name}",
+            )
+        )
+        annotation_index += 1
+
+    for joint_name in active_joints[:4]:
+        joint = series.get(joint_name)
+        if joint is None or len(joint.values) < 8:
+            continue
+        values = smooth_signal(resample(joint.values, 48), window=5)
+        velocity = np.abs(np.diff(values))
+        quiet_index = int(np.argmin(velocity)) if len(velocity) else 0
+        annotations.append(
+            MotionAnnotation(
+                id=f"event-{annotation_index}",
+                timestamp=round(duration * (quiet_index / max(len(values) - 1, 1)), 2),
+                title="Pacing check",
+                detail=f"{joint_name.replace('_', ' ')} slowed noticeably here; check for hesitation or guarded motion.",
+                severity="watch",
+                joint=joint_name,
+            )
+        )
+        annotation_index += 1
+
+    annotations.sort(key=lambda item: item.timestamp)
+    return annotations[:10]
+
+
 def analyze_pose(sequence: PoseSequence, limitations: List[Limitation], exercises) -> AnalysisReport:
     series = compute_joint_series(sequence)
     all_joint_scores = mobility_scores(series)
@@ -172,16 +307,19 @@ def analyze_pose(sequence: PoseSequence, limitations: List[Limitation], exercise
         min(100.0, 0.55 * mobility_score + 0.20 * symmetry + 0.25 * smoothness - limitation_penalty),
     )
     feedback = infer_feedback(overall, mobility_score, symmetry, smoothness, joint_scores, active_joints)
+    annotations = build_motion_annotations(sequence, series, active_joints, limitations)
+    rep_summary = estimate_rep_summary(series, active_joints)
     metadata = dict(sequence.metadata)
     metadata["analysis_mode"] = "form_only"
     metadata["mobility_score"] = f"{mobility_score:.1f}"
     metadata["active_joints"] = ",".join(active_joints)
-    metadata["reference_source"] = "calibrated_rom"
+    metadata["calibration_source"] = "calibrated_rom"
+    metadata["duration_seconds"] = f"{(sequence.frames[-1].timestamp if sequence.frames else 0.0):.2f}"
     return AnalysisReport(
         label=sequence.label,
         inferred_action="form_analysis",
         overall_score=overall,
-        reference_score=mobility_score,
+        mobility_score=mobility_score,
         symmetry_score=symmetry,
         smoothness_score=smoothness,
         joint_scores=joint_scores,
@@ -189,6 +327,7 @@ def analyze_pose(sequence: PoseSequence, limitations: List[Limitation], exercise
         limitations=limitations,
         exercises=exercises,
         feedback=feedback,
-        matched_reference=None,
+        annotations=annotations,
+        rep_summary=rep_summary,
         metadata=metadata,
     )

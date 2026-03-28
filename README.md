@@ -86,7 +86,7 @@ Each analysis response includes:
 - `src/praxis_ai/calibration.py`: ROM calibration loading
 - `src/praxis_ai/reporting.py`: API response serialization
 - `frontend/`: React application source
-- `data/`: checked-in calibration, rules, demo landmarks, and reference assets
+- `data/`: checked-in calibration, rules, demo landmarks, and offline analysis artifacts
 - `scripts/`: offline dataset processing and threshold-generation utilities
 - `models/`: local MediaPipe task assets when required by the installed backend
 
@@ -97,7 +97,7 @@ The repository ignores the local `dataset/` directory. That folder is expected t
 Available helper scripts:
 
 - `scripts/calibrate_dataset.py`: derives target and minimum ROM calibration values from a local video dataset
-- `scripts/build_ucf_reference_stats.py`: computes aggregate UCF101-derived joint statistics
+- `scripts/build_ucf_reference_stats.py`: computes aggregate UCF101-derived joint statistics for offline analysis only
 - `scripts/extract_stroke_thresholds.py`: extracts ROM thresholds from the local impaired MATLAB datasets
 
 Generated JSON artifacts are written into `data/` and loaded at runtime by the analysis pipeline.

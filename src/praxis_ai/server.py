@@ -15,6 +15,7 @@ from .analysis import active_joint_names, analyze_pose, compute_joint_series
 from .pose_estimation import (
     JsonPoseEstimator,
     available_pose_estimator,
+    generate_overlay_video,
     load_pose_sequence,
     pose_backend_status,
     probe_video,
@@ -65,49 +66,60 @@ class PraxisHandler(BaseHTTPRequestHandler):
         else:
             form = {key: values[0] for key, values in parse_qs(body.decode("utf-8")).items()}
         try:
-            report = self._run_analysis(form)
+            result = self._run_analysis(form)
         except Exception as exc:
             self._send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
             return
-        self._send_json(serialize_report(report))
+        self._send_json(result)
 
     def _run_analysis(self, form: Dict[str, object]):
         estimator = available_pose_estimator()
         json_estimator = JsonPoseEstimator()
         sequence = None
         metadata: Dict[str, str] = {}
+        temp_video = None
 
-        landmarks_json = str(form.get("landmarks_json", "")).strip()
+        landmarks_input = form.get("landmarks_json", "")
+        if isinstance(landmarks_input, dict):
+            landmarks_json = landmarks_input.get("content", b"").decode("utf-8").strip()
+        else:
+            landmarks_json = str(landmarks_input).strip()
         video_file = form.get("video_file")
 
         if landmarks_json:
-            with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as handle:
-                handle.write(landmarks_json)
-                temp_json = Path(handle.name)
-            sequence = load_pose_sequence(temp_json)
-            temp_json.unlink(missing_ok=True)
+            temp_json = None
+            try:
+                with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as handle:
+                    handle.write(landmarks_json)
+                    temp_json = Path(handle.name)
+                sequence = load_pose_sequence(temp_json)
+            finally:
+                if temp_json is not None:
+                    temp_json.unlink(missing_ok=True)
         elif isinstance(video_file, dict):
             filename = str(video_file["filename"])
             content = video_file["content"]
-            with tempfile.NamedTemporaryFile("wb", suffix=Path(filename).suffix or ".mp4", delete=False) as handle:
-                handle.write(content)
-                temp_video = Path(handle.name)
-            metadata = probe_video(temp_video)
-            backend_ok, backend_message = pose_backend_status()
-            metadata["pose_backend"] = backend_message
-            if not backend_ok:
-                temp_video.unlink(missing_ok=True)
-                raise ValueError(backend_message)
-            sequence = estimator.estimate(temp_video) if estimator else None
-            if sequence is None:
-                sequence = json_estimator.estimate(temp_video)
-            if sequence is None:
-                raise ValueError(
-                    "Pose landmarks could not be extracted from the uploaded video. "
-                    "Install a supported pose backend such as MediaPipe/OpenCV, provide a sidecar '.pose.json' file, "
-                    "or paste landmark JSON directly."
-                )
-            temp_video.unlink(missing_ok=True)
+            try:
+                with tempfile.NamedTemporaryFile("wb", suffix=Path(filename).suffix or ".mp4", delete=False) as handle:
+                    handle.write(content)
+                    temp_video = Path(handle.name)
+                metadata = probe_video(temp_video)
+                backend_ok, backend_message = pose_backend_status()
+                metadata["pose_backend"] = backend_message
+                if not backend_ok:
+                    raise ValueError(backend_message)
+                sequence = estimator.estimate(temp_video) if estimator else None
+                if sequence is None:
+                    sequence = json_estimator.estimate(temp_video)
+                if sequence is None:
+                    raise ValueError(
+                        "Pose landmarks could not be extracted from the uploaded video. "
+                        "Install a supported pose backend such as MediaPipe/OpenCV, provide a sidecar '.pose.json' file, "
+                        "or paste landmark JSON directly."
+                    )
+            finally:
+                # Clean up video only after all processing is done
+                pass
         else:
             raise ValueError("Provide a video file or paste landmark JSON.")
 
@@ -116,7 +128,21 @@ class PraxisHandler(BaseHTTPRequestHandler):
         relevant_joints = set(active_joint_names(joint_series))
         limitations = detect_limitations(joint_series, BASE_DIR, relevant_joints=relevant_joints or None)
         exercises = recommend_exercises(limitations, "")
-        return analyze_pose(sequence, limitations, exercises)
+
+        report = analyze_pose(sequence, limitations, exercises)
+        result = serialize_report(report)
+
+        # Generate overlay video if we had a video input
+        if temp_video is not None and temp_video.exists():
+            overlay_video = generate_overlay_video(temp_video, sequence)
+            if overlay_video:
+                overlay_mime, overlay_base64 = overlay_video
+                result["overlay_video"] = overlay_base64
+                result["overlay_video_mime"] = overlay_mime
+            # Clean up video file after overlay generation
+            temp_video.unlink(missing_ok=True)
+
+        return result
 
     def _serve_frontend_asset(self) -> None:
         target = self.path.split("?", 1)[0].lstrip("/") or "index.html"
@@ -151,7 +177,16 @@ class PraxisHandler(BaseHTTPRequestHandler):
         self.wfile.write(encoded)
 
 
+class PraxisHTTPServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+
+
 def run(host: str = "127.0.0.1", port: int = 8000) -> None:
-    server = ThreadingHTTPServer((host, port), PraxisHandler)
+    server = PraxisHTTPServer((host, port), PraxisHandler)
     print(f"Praxis Motion Intelligence running on http://{host}:{port}")
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nShutting down Praxis Motion Intelligence.")
+    finally:
+        server.server_close()

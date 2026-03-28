@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 const emptyState = {
   videoFile: null,
@@ -8,12 +8,27 @@ const emptyState = {
 const panelClass =
   "rounded-[28px] border border-white/10 bg-slate-950/70 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-xl";
 
+const sessionStorageKey = "praxis:last-report";
+
 function App() {
   const [formState, setFormState] = useState(emptyState);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [report, setReport] = useState(null);
+  const [previousSession, setPreviousSession] = useState(null);
   const [fileInputKey, setFileInputKey] = useState(0);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState("");
+
+  useEffect(() => {
+    if (!formState.videoFile) {
+      setVideoPreviewUrl("");
+      return undefined;
+    }
+
+    const objectUrl = URL.createObjectURL(formState.videoFile);
+    setVideoPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [formState.videoFile]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -52,7 +67,11 @@ function App() {
       if (!response.ok) {
         throw new Error(payload.error || "Analysis failed.");
       }
+
+      const storedSession = readStoredSession();
+      setPreviousSession(storedSession);
       setReport(payload);
+      writeStoredSession(payload);
     } catch (submitError) {
       setError(submitError.message);
     } finally {
@@ -89,7 +108,7 @@ function App() {
               <div className="mt-8 grid gap-3 sm:grid-cols-3">
                 <Metric label="Video-first" value="No demos" />
                 <Metric label="Analysis" value="Pose + kinematics" />
-                <Metric label="Output" value="Quantitative rehab report" />
+                <Metric label="Output" value="Replay + charts" />
               </div>
             </div>
           </div>
@@ -100,8 +119,8 @@ function App() {
                 System focus
               </span>
               <p className="mt-3 text-sm leading-7 text-slate-300">
-                Bilateral symmetry, range of motion, movement smoothness, and
-                transparent joint-level form scoring.
+                Bilateral symmetry, range of motion, movement smoothness, rep
+                rhythm, and time-anchored clinical annotations.
               </p>
             </div>
             <div className="grid min-h-56 content-center gap-5 rounded-[22px] border border-white/10 bg-slate-950/90 p-5">
@@ -123,8 +142,9 @@ function App() {
                 Analysis Input
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                Provide a patient video or a landmark sequence. The app now only
-                analyzes the input you submit.
+                Provide a patient video or a landmark sequence. The app only
+                analyzes the submitted input and now stores the previous result
+                locally for comparison.
               </p>
             </div>
 
@@ -145,6 +165,17 @@ function App() {
                 }
               />
             </label>
+
+            <WebcamRecorder
+              disabled={loading}
+              onError={setError}
+              onCapture={(file) =>
+                setFormState((current) => ({
+                  ...current,
+                  videoFile: file,
+                }))
+              }
+            />
 
             <label className="block">
               <span className="mb-2 block text-sm font-medium text-slate-300">
@@ -203,7 +234,11 @@ function App() {
                 </p>
               </div>
             ) : (
-              <ReportView report={report} />
+              <ReportView
+                report={report}
+                originalVideoUrl={videoPreviewUrl}
+                previousSession={previousSession}
+              />
             )}
           </section>
         </section>
@@ -225,20 +260,252 @@ function Metric({ label, value }) {
   );
 }
 
-function ReportView({ report }) {
+function WebcamRecorder({ disabled, onCapture, onError }) {
+  const previewRef = useRef(null);
+  const recorderRef = useRef(null);
+  const streamRef = useRef(null);
+  const chunksRef = useRef([]);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recordedSeconds, setRecordedSeconds] = useState(0);
+
+  useEffect(() => {
+    let timerId;
+    if (recording) {
+      timerId = window.setInterval(() => {
+        setRecordedSeconds((current) => current + 1);
+      }, 1000);
+    }
+    return () => {
+      if (timerId) {
+        window.clearInterval(timerId);
+      }
+    };
+  }, [recording]);
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
+
+  async function startCamera() {
+    onError("");
+    if (!navigator.mediaDevices?.getUserMedia) {
+      onError("This browser does not support webcam capture.");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+      streamRef.current = stream;
+      if (previewRef.current) {
+        previewRef.current.srcObject = stream;
+      }
+      setCameraReady(true);
+    } catch (captureError) {
+      onError(captureError.message || "Unable to access webcam.");
+    }
+  }
+
+  function stopCamera() {
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      recorderRef.current.stop();
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (previewRef.current) {
+      previewRef.current.srcObject = null;
+    }
+    recorderRef.current = null;
+    chunksRef.current = [];
+    setCameraReady(false);
+    setRecording(false);
+    setRecordedSeconds(0);
+  }
+
+  function startRecording() {
+    if (!streamRef.current || !window.MediaRecorder) {
+      onError("Recording is not available in this browser.");
+      return;
+    }
+    onError("");
+    chunksRef.current = [];
+
+    const mimeType = pickRecorderMimeType();
+    const recorder = mimeType
+      ? new MediaRecorder(streamRef.current, { mimeType })
+      : new MediaRecorder(streamRef.current);
+    recorderRef.current = recorder;
+    recorder.ondataavailable = (event) => {
+      if (event.data && event.data.size > 0) {
+        chunksRef.current.push(event.data);
+      }
+    };
+    recorder.onstop = () => {
+      if (!chunksRef.current.length) {
+        return;
+      }
+      const blobType = recorder.mimeType || mimeType || "video/webm";
+      const extension = blobType.includes("mp4") ? "mp4" : "webm";
+      const file = new File(chunksRef.current, `webcam-session-${Date.now()}.${extension}`, {
+        type: blobType,
+      });
+      onCapture(file);
+      chunksRef.current = [];
+    };
+    recorder.start(250);
+    setRecording(true);
+    setRecordedSeconds(0);
+  }
+
+  function stopRecording() {
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      recorderRef.current.stop();
+    }
+    setRecording(false);
+  }
+
+  return (
+    <div className="space-y-3 rounded-[24px] border border-white/10 bg-white/5 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <span className="block text-sm font-medium text-slate-200">
+            Live webcam capture
+          </span>
+          <span className="block text-xs uppercase tracking-[0.22em] text-slate-500">
+            Record and analyze in-browser
+          </span>
+        </div>
+        {recording ? (
+          <span className="rounded-full border border-rose-400/30 bg-rose-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-rose-200">
+            Recording {recordedSeconds}s
+          </span>
+        ) : null}
+      </div>
+
+      <video
+        ref={previewRef}
+        className="aspect-video w-full rounded-[20px] bg-slate-950 object-cover"
+        autoPlay
+        muted
+        playsInline
+      />
+
+      <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          disabled={disabled || cameraReady}
+          onClick={startCamera}
+          className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Start camera
+        </button>
+        <button
+          type="button"
+          disabled={disabled || !cameraReady || recording}
+          onClick={startRecording}
+          className="inline-flex items-center rounded-full bg-gradient-to-r from-emerald-300 via-cyan-300 to-sky-300 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Record
+        </button>
+        <button
+          type="button"
+          disabled={disabled || !recording}
+          onClick={stopRecording}
+          className="inline-flex items-center rounded-full border border-rose-400/30 bg-rose-500/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Stop
+        </button>
+        <button
+          type="button"
+          disabled={disabled || !cameraReady}
+          onClick={stopCamera}
+          className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Close camera
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ReportView({ report, originalVideoUrl, previousSession }) {
+  const overlayRef = useRef(null);
+  const originalRef = useRef(null);
+  const feedback = report.feedback || [];
+  const metadata = report.metadata || {};
+  const limitations = report.limitations || [];
+  const exercises = report.exercises || [];
+  const jointSummary = report.joint_summary || [];
+  const jointCharts = report.joint_charts || [];
+  const annotations = report.annotations || [];
+  const repSummary = report.rep_summary || [];
+  const overlayVideoUrl = report.overlay_video
+    ? `data:${report.overlay_video_mime || "video/mp4"};base64,${report.overlay_video}`
+    : "";
+  const fallbackDuration = Number(metadata.duration_seconds) || 0;
+  const [timelineDuration, setTimelineDuration] = useState(fallbackDuration);
+  const [timelinePosition, setTimelinePosition] = useState(0);
+
+  useEffect(() => {
+    setTimelinePosition(0);
+    setTimelineDuration(fallbackDuration);
+  }, [report, fallbackDuration]);
+
+  function syncPlayback(nextTime) {
+    setTimelinePosition(nextTime);
+    [overlayRef.current, originalRef.current].forEach((video) => {
+      if (!video) {
+        return;
+      }
+      const targetTime = Math.min(nextTime, Number.isFinite(video.duration) ? video.duration : nextTime);
+      video.currentTime = targetTime;
+    });
+  }
+
+  function handleLoadedMetadata() {
+    const durations = [overlayRef.current?.duration, originalRef.current?.duration]
+      .filter((value) => Number.isFinite(value) && value > 0);
+    if (durations.length) {
+      setTimelineDuration(Math.max(...durations));
+    }
+  }
+
+  function exportPdf() {
+    window.print();
+  }
+
   return (
     <div className="space-y-5">
       <div className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-center">
         <CircularScore score={report.overall_score} band={report.score_band} />
 
         <div>
-          <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-white sm:text-5xl">
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={exportPdf}
+              className="inline-flex items-center rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/15"
+            >
+              Export PDF
+            </button>
+          </div>
+          <h2 className="mt-4 text-3xl font-semibold tracking-[-0.05em] text-white sm:text-5xl">
             Movement form analysis
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-400 sm:text-base">
-            The uploaded motion was scored for mobility, symmetry, and
-            smoothness. Lower-performing joints and asymmetries are highlighted
-            below.
+            The uploaded motion was scored for mobility, symmetry, smoothness,
+            repetition rhythm, and clinically relevant events across the replay.
           </p>
         </div>
       </div>
@@ -250,10 +517,164 @@ function ReportView({ report }) {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
+        <Panel title="Session Comparison">
+          <SessionComparison report={report} previousSession={previousSession} />
+        </Panel>
+
+        <Panel title="Repetition Summary">
+          {repSummary.length ? (
+            <div className="grid gap-3">
+              {repSummary.map((item) => (
+                <div
+                  key={item.joint}
+                  className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <strong className="text-sm font-semibold text-white">
+                      {prettyName(item.joint)}
+                    </strong>
+                    <span className="text-xs uppercase tracking-[0.2em] text-cyan-300">
+                      {item.repetitions} reps
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    Avg ROM per rep: {item.average_rom} deg
+                  </p>
+                  <p className="text-sm leading-6 text-slate-400">
+                    Rhythm consistency: {item.rhythm_score}/100
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm leading-7 text-slate-400">
+              Repetition segmentation did not find a stable cyclic pattern in the
+              active joints for this sequence.
+            </p>
+          )}
+        </Panel>
+      </div>
+
+      {overlayVideoUrl || originalVideoUrl ? (
+        <Panel title="Motion Replay" wide>
+          <div className="grid gap-4 xl:grid-cols-2">
+            {overlayVideoUrl ? (
+              <VideoCard
+                ref={overlayRef}
+                title="Stickman Overlay"
+                description="Pose landmarks rendered as a skeleton directly on the submitted clip."
+                src={overlayVideoUrl}
+                onLoadedMetadata={handleLoadedMetadata}
+                onTimeUpdate={(event) => setTimelinePosition(event.currentTarget.currentTime)}
+              />
+            ) : null}
+
+            {originalVideoUrl ? (
+              <VideoCard
+                ref={originalRef}
+                title="Original Upload"
+                description="Reference playback of the uploaded source video."
+                src={originalVideoUrl}
+                onLoadedMetadata={handleLoadedMetadata}
+                onTimeUpdate={(event) => setTimelinePosition(event.currentTarget.currentTime)}
+              />
+            ) : null}
+          </div>
+
+          {timelineDuration > 0 ? (
+            <div className="mt-5 space-y-3">
+              <div className="flex items-center justify-between gap-4 text-xs uppercase tracking-[0.24em] text-slate-400">
+                <span>Replay scrubber</span>
+                <span>{formatSeconds(timelinePosition)} / {formatSeconds(timelineDuration)}</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max={timelineDuration}
+                step="0.05"
+                value={Math.min(timelinePosition, timelineDuration)}
+                onChange={(event) => syncPlayback(Number(event.target.value))}
+                className="w-full accent-cyan-300"
+              />
+            </div>
+          ) : null}
+        </Panel>
+      ) : null}
+
+      <Panel title="Clinical Event Timeline" wide>
+        {annotations.length ? (
+          <div className="space-y-3">
+            <div className="relative h-1 rounded-full bg-white/10">
+              {annotations.map((item) => (
+                <button
+                  type="button"
+                  key={item.id}
+                  onClick={() => syncPlayback(item.timestamp)}
+                  className={`absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-slate-950 ${
+                    item.severity === "high"
+                      ? "bg-rose-400"
+                      : item.severity === "moderate"
+                        ? "bg-amber-300"
+                        : "bg-cyan-300"
+                  }`}
+                  style={{
+                    left: `${Math.min(100, (item.timestamp / Math.max(timelineDuration || fallbackDuration || 1, 1)) * 100)}%`,
+                  }}
+                />
+              ))}
+            </div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              {annotations.map((item) => (
+                <button
+                  type="button"
+                  key={item.id}
+                  onClick={() => syncPlayback(item.timestamp)}
+                  className="rounded-[22px] border border-white/10 bg-white/5 p-4 text-left transition hover:bg-white/8"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <strong className="text-sm font-semibold text-white">
+                      {item.title}
+                    </strong>
+                    <span className="text-xs uppercase tracking-[0.2em] text-cyan-300">
+                      {formatSeconds(item.timestamp)}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    {item.detail}
+                  </p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">
+                    {prettyName(item.joint)} · {item.severity}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm leading-7 text-slate-400">
+            No major time-anchored motion events were generated for this sequence.
+          </p>
+        )}
+      </Panel>
+
+      <Panel title="Joint Motion Charts" wide>
+        {jointCharts.length ? (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {jointCharts.map((chart) => (
+              <JointChartCard key={chart.joint} chart={chart} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm leading-7 text-slate-400">
+            Joint angle traces are unavailable for the current report.
+          </p>
+        )}
+      </Panel>
+
+      <div className="grid gap-4 xl:grid-cols-2">
         <Panel title="Quantitative Feedback">
           <ul className="space-y-3 break-words text-sm leading-7 text-slate-300">
-            {report.feedback.map((item) => (
-              <li key={item} className="list-disc ml-5">
+            {feedback.map((item) => (
+              <li key={item} className="ml-5 list-disc">
                 {item}
               </li>
             ))}
@@ -261,9 +682,9 @@ function ReportView({ report }) {
         </Panel>
 
         <Panel title="Motion Metadata">
-          {Object.entries(report.metadata || {}).length ? (
+          {Object.entries(metadata).length ? (
             <div className="space-y-3">
-              {Object.entries(report.metadata || {}).map(([key, value]) => (
+              {Object.entries(metadata).map(([key, value]) => (
                 <div
                   className="grid gap-2 border-b border-white/10 pb-3 text-sm sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] sm:items-start"
                   key={key}
@@ -283,10 +704,10 @@ function ReportView({ report }) {
         </Panel>
 
         <Panel title="Detected Limitations">
-          {report.limitations.length ? (
+          {limitations.length ? (
             <ul className="space-y-3 break-words text-sm leading-7 text-slate-300">
-              {report.limitations.map((item, index) => (
-                <li key={`${item.joint}-${index}`} className="list-disc ml-5">
+              {limitations.map((item, index) => (
+                <li key={`${item.joint}-${index}`} className="ml-5 list-disc">
                   <strong className="font-semibold text-white">
                     {prettyName(item.joint)}
                   </strong>{" "}
@@ -303,9 +724,9 @@ function ReportView({ report }) {
         </Panel>
 
         <Panel title="Exercise Guidance" wide>
-          {report.exercises.length ? (
+          {exercises.length ? (
             <div className="grid gap-4 md:grid-cols-2">
-              {report.exercises.map((exercise) => (
+              {exercises.map((exercise) => (
                 <article
                   className="min-w-0 rounded-3xl border border-white/10 bg-white/5 p-5"
                   key={exercise.name}
@@ -314,19 +735,17 @@ function ReportView({ report }) {
                     {exercise.name}
                   </h3>
                   <p className="mt-3 break-words text-sm leading-7 text-slate-300">
-                    <strong className="text-white">Target:</strong>{" "}
-                    {exercise.target}
+                    <strong className="text-white">Target:</strong> {exercise.target}
                   </p>
                   <p className="break-words text-sm leading-7 text-slate-300">
-                    <strong className="text-white">Dosage:</strong>{" "}
-                    {exercise.dosage}
+                    <strong className="text-white">Dosage:</strong> {exercise.dosage}
                   </p>
                   <p className="mt-2 break-words text-sm leading-7 text-slate-400">
                     {exercise.rationale}
                   </p>
                   <ul className="mt-4 space-y-2 break-words text-sm leading-7 text-slate-300">
                     {exercise.visual_cues.map((cue) => (
-                      <li key={cue} className="list-disc ml-5">
+                      <li key={cue} className="ml-5 list-disc">
                         {cue}
                       </li>
                     ))}
@@ -355,7 +774,7 @@ function ReportView({ report }) {
                 </tr>
               </thead>
               <tbody>
-                {report.joint_summary.map((row) => (
+                {jointSummary.map((row) => (
                   <tr key={row.joint} className="border-b border-white/10 text-slate-200">
                     <td className="px-3 py-3">{prettyName(row.joint)}</td>
                     <td className="px-3 py-3">{row.minimum}</td>
@@ -370,6 +789,111 @@ function ReportView({ report }) {
         </Panel>
       </div>
     </div>
+  );
+}
+
+const VideoCard = React.forwardRef(function VideoCard(
+  { title, description, src, onLoadedMetadata, onTimeUpdate },
+  ref,
+) {
+  const mimeType = src.startsWith("data:") ? src.slice(5, src.indexOf(";")) : "";
+
+  return (
+    <article className="overflow-hidden rounded-[26px] border border-white/10 bg-slate-950/80">
+      <video
+        ref={ref}
+        className="aspect-video w-full bg-slate-950 object-cover"
+        controls
+        playsInline
+        preload="metadata"
+        onLoadedMetadata={onLoadedMetadata}
+        onTimeUpdate={onTimeUpdate}
+      >
+        {mimeType ? <source src={src} type={mimeType} /> : <source src={src} />}
+      </video>
+      <div className="space-y-2 p-4">
+        <h4 className="text-base font-semibold text-white">{title}</h4>
+        <p className="text-sm leading-6 text-slate-400">{description}</p>
+      </div>
+    </article>
+  );
+});
+
+function SessionComparison({ report, previousSession }) {
+  if (!previousSession) {
+    return (
+      <p className="text-sm leading-7 text-slate-400">
+        No previous local session is stored yet. Run another analysis in this
+        browser to compare changes over time.
+      </p>
+    );
+  }
+
+  const comparisons = [
+    ["Overall", report.overall_score, previousSession.overall_score],
+    ["Mobility", report.mobility_score, previousSession.mobility_score],
+    ["Symmetry", report.symmetry_score, previousSession.symmetry_score],
+    ["Smoothness", report.smoothness_score, previousSession.smoothness_score],
+  ];
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm leading-6 text-slate-400">
+        Comparing against local session from {previousSession.saved_at}.
+      </p>
+      {comparisons.map(([label, current, previous]) => {
+        const delta = Number(current) - Number(previous);
+        return (
+          <div
+            key={label}
+            className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
+          >
+            <span className="text-sm text-slate-300">{label}</span>
+            <strong
+              className={`text-sm font-semibold ${
+                delta >= 0 ? "text-emerald-300" : "text-rose-300"
+              }`}
+            >
+              {formatDelta(delta)} pts
+            </strong>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function JointChartCard({ chart }) {
+  const points = chart.points || [];
+  const width = 320;
+  const height = 160;
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const range = Math.max(max - min, 1);
+  const path = points
+    .map((value, index) => {
+      const x = (index / Math.max(points.length - 1, 1)) * width;
+      const y = height - ((value - min) / range) * (height - 20) - 10;
+      return `${index === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(" ");
+
+  return (
+    <article className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <h4 className="text-sm font-semibold text-white">{prettyName(chart.joint)}</h4>
+        <span className="text-xs uppercase tracking-[0.2em] text-slate-500">
+          {chart.minimum} - {chart.maximum} deg
+        </span>
+      </div>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="mt-4 h-40 w-full overflow-visible rounded-2xl bg-slate-950/80"
+        aria-hidden="true"
+      >
+        <path d={path} fill="none" stroke="rgb(103 232 249)" strokeWidth="3" />
+      </svg>
+    </article>
   );
 }
 
@@ -462,6 +986,56 @@ function prettyName(value) {
   return String(value || "")
     .replaceAll("_", " ")
     .replaceAll("/", " / ");
+}
+
+function formatSeconds(value) {
+  const totalSeconds = Math.max(0, Number(value) || 0);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = (totalSeconds % 60).toFixed(1).padStart(4, "0");
+  return `${minutes}:${seconds}`;
+}
+
+function formatDelta(value) {
+  const numeric = Number(value) || 0;
+  return `${numeric >= 0 ? "+" : ""}${numeric.toFixed(1)}`;
+}
+
+function readStoredSession() {
+  try {
+    const raw = window.localStorage.getItem(sessionStorageKey);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredSession(report) {
+  try {
+    const snapshot = {
+      label: report.label,
+      overall_score: report.overall_score,
+      mobility_score: report.mobility_score,
+      symmetry_score: report.symmetry_score,
+      smoothness_score: report.smoothness_score,
+      saved_at: new Date().toLocaleString(),
+    };
+    window.localStorage.setItem(sessionStorageKey, JSON.stringify(snapshot));
+  } catch {
+    // Ignore local storage failures in private or restricted contexts.
+  }
+}
+
+function pickRecorderMimeType() {
+  const candidates = [
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm",
+    "video/mp4",
+  ];
+  if (!window.MediaRecorder?.isTypeSupported) {
+    return "";
+  }
+  return candidates.find((candidate) => window.MediaRecorder.isTypeSupported(candidate)) || "";
 }
 
 export default App;

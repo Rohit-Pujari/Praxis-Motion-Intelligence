@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import os
 import shutil
@@ -7,7 +8,7 @@ import subprocess
 import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional, Tuple
 
 from .models import Landmark, PoseFrame, PoseSequence
 
@@ -112,7 +113,7 @@ class MediaPipePoseEstimator(PoseEstimator):
         frames, decoded_frame_count = self._estimate_from_capture(cap, fps)
         cap.release()
         if decoded_frame_count == 0:
-            frames = self._estimate_from_ffmpeg(video_path, fps)
+            frames = self._estimate_from_ffmpeg(video_path)
         if not frames:
             raise PoseEstimationError(
                 "Video was decoded but no human pose landmarks were detected. "
@@ -137,11 +138,12 @@ class MediaPipePoseEstimator(PoseEstimator):
             index += 1
         return frames, decoded_frames
 
-    def _estimate_from_ffmpeg(self, video_path: Path, fps: float) -> list[PoseFrame]:
+    def _estimate_from_ffmpeg(self, video_path: Path) -> list[PoseFrame]:
         if not shutil.which("ffmpeg"):
             raise PoseEstimationError(
                 "OpenCV could not decode any frames from the uploaded video, and ffmpeg is unavailable for fallback decoding."
             )
+        fallback_fps = 12.0
         with tempfile.TemporaryDirectory() as tmp_dir:
             frame_pattern = str(Path(tmp_dir) / "frame_%05d.png")
             cmd = [
@@ -151,7 +153,7 @@ class MediaPipePoseEstimator(PoseEstimator):
                 "-i",
                 str(video_path),
                 "-vf",
-                "fps=12",
+                f"fps={fallback_fps:g}",
                 frame_pattern,
             ]
             result = subprocess.run(cmd, capture_output=True, text=True, check=False)
@@ -169,10 +171,10 @@ class MediaPipePoseEstimator(PoseEstimator):
                 frame = self.cv2.imread(str(frame_path))
                 if frame is None:
                     continue
-                landmarks = self._extract_landmarks(frame, index, fps)
+                landmarks = self._extract_landmarks(frame, index, fallback_fps)
                 if not landmarks:
                     continue
-                frames.append(PoseFrame(timestamp=index / max(fps, 1.0), landmarks=landmarks))
+                frames.append(PoseFrame(timestamp=index / fallback_fps, landmarks=landmarks))
             return frames
 
     def _extract_landmarks(self, frame, index: int, fps: float) -> Dict[str, Landmark]:
@@ -285,3 +287,214 @@ def load_pose_sequence(path: Path) -> PoseSequence:
         source_type=payload.get("source_type", "landmarks"),
         metadata=payload.get("metadata", {}),
     )
+
+
+# Skeleton connections for stickman overlay
+SKELETON_CONNECTIONS: List[Tuple[str, str]] = [
+    # Torso
+    ("left_shoulder", "right_shoulder"),
+    ("left_shoulder", "left_hip"),
+    ("right_shoulder", "right_hip"),
+    ("left_hip", "right_hip"),
+    # Left arm
+    ("left_shoulder", "left_elbow"),
+    ("left_elbow", "left_wrist"),
+    # Right arm
+    ("right_shoulder", "right_elbow"),
+    ("right_elbow", "right_wrist"),
+    # Left leg
+    ("left_hip", "left_knee"),
+    ("left_knee", "left_ankle"),
+    # Right leg
+    ("right_hip", "right_knee"),
+    ("right_knee", "right_ankle"),
+]
+
+
+def generate_overlay_video(
+    video_path: Path,
+    sequence: PoseSequence,
+    output_width: int = 640,
+    output_fps: float = 15.0,
+) -> Optional[Tuple[str, str]]:
+    """Generate a browser-safe overlay video and return (mime_type, base64_payload)."""
+    try:
+        import cv2  # type: ignore
+    except ImportError:
+        return None
+    if not sequence.frames:
+        return None
+
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        return None
+
+    original_fps = cap.get(cv2.CAP_PROP_FPS) or 24.0
+    original_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 640)
+    original_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 480)
+
+    # Calculate output height maintaining aspect ratio
+    scale = output_width / original_width
+    output_height = int(original_height * scale)
+
+    # Create temporary output file
+    temp_output = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+    temp_output_path = Path(temp_output.name)
+    temp_output.close()
+
+    effective_fps = min(original_fps, output_fps) if output_fps > 0 else original_fps
+    effective_fps = max(effective_fps, 1.0)
+    frame_stride = max(1, round(original_fps / effective_fps))
+
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    out = cv2.VideoWriter(str(temp_output_path), fourcc, effective_fps, (output_width, output_height))
+    if not out.isOpened():
+        cap.release()
+        return None
+
+    # Build frame index map for pose landmarks
+    frame_timestamps = [frame.timestamp for frame in sequence.frames]
+    frame_landmarks = [frame.landmarks for frame in sequence.frames]
+
+    frame_index = 0
+    pose_index = 0
+    total_pose_frames = len(sequence.frames)
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        if frame_index % frame_stride != 0:
+            frame_index += 1
+            continue
+
+        # Resize frame
+        frame = cv2.resize(frame, (output_width, output_height))
+
+        # Calculate current timestamp
+        current_time = frame_index / original_fps
+
+        # Find closest pose frame
+        while pose_index < total_pose_frames - 1:
+            next_time = frame_timestamps[pose_index + 1]
+            if abs(current_time - frame_timestamps[pose_index]) <= abs(current_time - next_time):
+                break
+            pose_index += 1
+
+        # Draw skeleton if we have landmarks
+        if pose_index < total_pose_frames:
+            landmarks = frame_landmarks[pose_index]
+            _draw_skeleton(frame, landmarks, output_width, output_height)
+
+        out.write(frame)
+        frame_index += 1
+
+    cap.release()
+    out.release()
+
+    # Read video as base64
+    try:
+        webm_path = _transcode_overlay_to_webm(temp_output_path)
+        if webm_path is not None:
+            payload = _encode_video_file(webm_path)
+            webm_path.unlink(missing_ok=True)
+            temp_output_path.unlink(missing_ok=True)
+            return ("video/webm", payload)
+
+        payload = _encode_video_file(temp_output_path)
+        temp_output_path.unlink(missing_ok=True)
+        return ("video/mp4", payload)
+    except Exception:
+        temp_output_path.unlink(missing_ok=True)
+        return None
+
+
+def _transcode_overlay_to_webm(source_path: Path) -> Optional[Path]:
+    if not shutil.which("ffmpeg"):
+        return None
+
+    target_path = source_path.with_suffix(".webm")
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-v",
+        "error",
+        "-i",
+        str(source_path),
+        "-an",
+        "-c:v",
+        "libvpx-vp9",
+        "-crf",
+        "36",
+        "-b:v",
+        "0",
+        str(target_path),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    if result.returncode != 0 or not target_path.exists():
+        target_path.unlink(missing_ok=True)
+        return None
+    return target_path
+
+
+def _encode_video_file(path: Path) -> str:
+    with path.open("rb") as handle:
+        return base64.b64encode(handle.read()).decode("utf-8")
+
+
+def _draw_skeleton(
+    frame,
+    landmarks: Dict[str, Landmark],
+    width: int,
+    height: int,
+) -> None:
+    """Draw stickman skeleton on frame."""
+    import cv2  # type: ignore
+
+    # Colors for different body parts (BGR format)
+    colors = {
+        "torso": (0, 200, 255),      # Cyan
+        "left_arm": (0, 255, 100),    # Green
+        "right_arm": (255, 100, 0),   # Blue
+        "left_leg": (255, 0, 200),    # Magenta
+        "right_leg": (0, 165, 255),   # Orange
+    }
+
+    connection_colors = {
+        # Torso
+        ("left_shoulder", "right_shoulder"): colors["torso"],
+        ("left_shoulder", "left_hip"): colors["torso"],
+        ("right_shoulder", "right_hip"): colors["torso"],
+        ("left_hip", "right_hip"): colors["torso"],
+        # Left arm
+        ("left_shoulder", "left_elbow"): colors["left_arm"],
+        ("left_elbow", "left_wrist"): colors["left_arm"],
+        # Right arm
+        ("right_shoulder", "right_elbow"): colors["right_arm"],
+        ("right_elbow", "right_wrist"): colors["right_arm"],
+        # Left leg
+        ("left_hip", "left_knee"): colors["left_leg"],
+        ("left_knee", "left_ankle"): colors["left_leg"],
+        # Right leg
+        ("right_hip", "right_knee"): colors["right_leg"],
+        ("right_knee", "right_ankle"): colors["right_leg"],
+    }
+
+    # Convert normalized coordinates to pixel coordinates
+    points = {}
+    for name, lm in landmarks.items():
+        x = int(lm.x * width)
+        y = int(lm.y * height)
+        points[name] = (x, y)
+
+    # Draw connections
+    for start_name, end_name in SKELETON_CONNECTIONS:
+        if start_name in points and end_name in points:
+            color = connection_colors.get((start_name, end_name), (0, 255, 255))
+            cv2.line(frame, points[start_name], points[end_name], color, 3, cv2.LINE_AA)
+
+    # Draw joint points
+    joint_color = (255, 255, 255)  # White
+    for name, point in points.items():
+        cv2.circle(frame, point, 5, joint_color, -1, cv2.LINE_AA)
+        cv2.circle(frame, point, 3, (0, 0, 0), -1, cv2.LINE_AA)
