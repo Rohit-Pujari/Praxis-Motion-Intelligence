@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Praxis Motion Intelligence Pitch Deck</title>
+    <style>
+      @page {
+        size: A4 landscape;
+        margin: 0;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "DejaVu Sans", "Segoe UI", sans-serif;
+        background: #07111f;
+        color: #eef4ff;
+      }
+
+      .slide {
+        width: 297mm;
+        height: 210mm;
+        padding: 18mm 20mm;
+        page-break-after: always;
+        position: relative;
+        background:
+          radial-gradient(circle at top right, rgba(37, 99, 235, 0.22), transparent 28%),
+          radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.16), transparent 30%),
+          linear-gradient(180deg, #07111f, #0d1b2f);
+      }
+
+      .slide:last-child {
+        page-break-after: auto;
+      }
+
+      .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.22em;
+        font-size: 10pt;
+        color: #8bd8ff;
+        margin-bottom: 8mm;
+      }
+
+      h1 {
+        font-size: 30pt;
+        line-height: 1.1;
+        margin: 0 0 8mm;
+      }
+
+      h2 {
+        font-size: 22pt;
+        line-height: 1.15;
+        margin: 0 0 7mm;
+      }
+
+      p {
+        font-size: 13pt;
+        line-height: 1.55;
+        margin: 0 0 5mm;
+        color: #d9e7ff;
+      }
+
+      ul, ol {
+        margin: 0;
+        padding-left: 7mm;
+        color: #e7f0ff;
+      }
+
+      li {
+        font-size: 13pt;
+        line-height: 1.55;
+        margin-bottom: 3mm;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 12mm;
+        align-items: center;
+        height: 100%;
+      }
+
+      .big-quote {
+        font-size: 18pt;
+        line-height: 1.45;
+        color: #f3f8ff;
+        margin-top: 8mm;
+      }
+
+      .panel {
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 8mm;
+        background: rgba(255, 255, 255, 0.06);
+        padding: 7mm;
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8mm;
+      }
+
+      .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8mm;
+      }
+
+      .metric {
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 7mm;
+        padding: 6mm;
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      .metric strong {
+        display: block;
+        font-size: 20pt;
+        margin-top: 3mm;
+      }
+
+      .footer-note {
+        position: absolute;
+        bottom: 12mm;
+        right: 18mm;
+        font-size: 10pt;
+        color: #93a7c6;
+      }
+
+      .tag {
+        display: inline-block;
+        padding: 2mm 4mm;
+        border-radius: 999px;
+        margin-right: 3mm;
+        margin-bottom: 3mm;
+        font-size: 10pt;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.05);
+      }
+    </style>
+  </head>
+  <body>
+    <section class="slide">
+      <div class="hero">
+        <div>
+          <div class="eyebrow">Hackathon Pitch Deck</div>
+          <h1>Praxis Motion Intelligence</h1>
+          <p class="big-quote">
+            An AI-assisted movement intelligence system that turns pose estimation
+            into an explainable rehab and recovery assessment.
+          </p>
+          <p>
+            Praxis analyzes a human movement video, compares it against a normal
+            movement baseline derived from UCF101, and classifies deviation as
+            normal, injury recovery, or severe neurological limitation.
+          </p>
+        </div>
+        <div class="panel">
+          <div class="tag">MediaPipe</div>
+          <div class="tag">UCF101 Core</div>
+          <div class="tag">Injury + Stroke Severity</div>
+          <div class="tag">Explainable Feedback</div>
+          <div class="tag">Stickman Replay</div>
+          <div class="tag">Fast Demo Runtime</div>
+        </div>
+      </div>
+      <div class="footer-note">Praxis | Human Movement Intelligence for Rehab and Recovery</div>
+    </section>
+
+    <section class="slide">
+      <div class="eyebrow">Problem</div>
+      <h2>Most movement demos stop at pose detection or a single score</h2>
+      <div class="grid-2">
+        <div class="panel">
+          <p>Typical systems can say:</p>
+          <ul>
+            <li>where the body landmarks are</li>
+            <li>what the rough motion score is</li>
+            <li>whether something looks abnormal</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <p>But clinicians, coaches, and judges want more:</p>
+          <ul>
+            <li>What does normal movement look like?</li>
+            <li>How far is the user from that baseline?</li>
+            <li>Is this mild recovery deviation or severe limitation?</li>
+            <li>Which joints are contributing most?</li>
+          </ul>
+        </div>
+      </div>
+      <p class="big-quote">
+        Praxis answers those questions with a dataset-driven and visually
+        explainable pipeline.
+      </p>
+      <div class="footer-note">Slide 2</div>
+    </section>
+
+    <section class="slide">
+      <div class="eyebrow">Solution</div>
+      <h2>UCF101 stays the core. Other datasets interpret severity.</h2>
+      <div class="grid-3">
+        <div class="metric">
+          <div>Primary baseline</div>
+          <strong>UCF101</strong>
+          <p>Defines how movement should ideally be performed.</p>
+        </div>
+        <div class="metric">
+          <div>Moderate deviation</div>
+          <strong>Injury Profile</strong>
+          <p>Calibrated from the sports injury CSV in the project root.</p>
+        </div>
+        <div class="metric">
+          <div>Severe deviation</div>
+          <strong>Stroke Profile</strong>
+          <p>Anchored from stroke MATLAB threshold data.</p>
+        </div>
+      </div>
+      <div class="panel" style="margin-top: 10mm;">
+        <p><strong>Key design rule:</strong> everyone is compared against normal movement first.</p>
+        <p>
+          Injury and stroke references are not replacement baselines. They are
+          interpretation layers used to decide whether the deviation pattern looks
+          like recovery-level limitation or severe neurological restriction.
+        </p>
+      </div>
+      <div class="footer-note">Slide 3</div>
+    </section>
+
+    <section class="slide">
+      <div class="eyebrow">How It Works</div>
+      <h2>Fast pipeline, no heavy training</h2>
+      <div class="grid-2">
+        <div class="panel">
+          <ol>
+            <li>Upload video, record webcam clip, or paste landmark JSON</li>
+            <li>Extract pose with MediaPipe</li>
+            <li>Compute joint angles for shoulders, elbows, hips, and knees</li>
+            <li>Score mobility, symmetry, and smoothness</li>
+          </ol>
+        </div>
+        <div class="panel">
+          <ol start="5">
+            <li>Compare against UCF101-derived normal profile</li>
+            <li>Interpret severity with injury and stroke profiles</li>
+            <li>Return joint status and overall condition</li>
+            <li>Generate explainable replay and feedback</li>
+          </ol>
+        </div>
+      </div>
+      <div class="panel" style="margin-top: 8mm;">
+        <p>
+          Output includes: joint status, overall condition, event timeline, joint
+          charts, repetition summary, human-readable feedback, and a stickman overlay
+          colored by severity.
+        </p>
+      </div>
+      <div class="footer-note">Slide 4</div>
+    </section>
+
+    <section class="slide">
+      <div class="eyebrow">What Makes It Strong</div>
+      <h2>Explainable, visual, and grounded in real data</h2>
+      <div class="grid-2">
+        <div class="panel">
+          <p><strong>Explainable feedback</strong></p>
+          <ul>
+            <li>Reduced Range of Motion</li>
+            <li>Overextension</li>
+            <li>Asymmetry</li>
+            <li>Compensation pattern</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <p><strong>Visual output</strong></p>
+          <ul>
+            <li>Original replay + stickman overlay</li>
+            <li>Green = Normal</li>
+            <li>Yellow = Injury Recovery</li>
+            <li>Red = Severe Limitation</li>
+          </ul>
+        </div>
+      </div>
+      <div class="grid-3" style="margin-top: 8mm;">
+        <div class="metric"><div>Real datasets</div><strong>3</strong></div>
+        <div class="metric"><div>Live inputs</div><strong>3</strong></div>
+        <div class="metric"><div>Core promise</div><strong>Fast + Interpretable</strong></div>
+      </div>
+      <div class="footer-note">Slide 5</div>
+    </section>
+
+    <section class="slide">
+      <div class="eyebrow">Judge Demo Flow</div>
+      <h2>How to present this in under 2 minutes</h2>
+      <div class="panel">
+        <ol>
+          <li>State the problem: pose estimation alone is not enough.</li>
+          <li>Show that UCF101 is the normal movement reference.</li>
+          <li>Upload or record a movement clip.</li>
+          <li>Run analysis with a selected condition profile.</li>
+          <li>Show the overall score and overall condition.</li>
+          <li>Show joint-level status and human-readable feedback.</li>
+          <li>Play the colored stickman overlay and event timeline.</li>
+        </ol>
+      </div>
+      <p class="big-quote">
+        Final message to judges: Praxis transforms raw human pose into movement
+        intelligence that is explainable, visual, and useful for rehab and recovery.
+      </p>
+      <div class="footer-note">Slide 6</div>
+    </section>
+  </body>
+</html>

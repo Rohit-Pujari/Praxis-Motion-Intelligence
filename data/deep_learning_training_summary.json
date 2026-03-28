@@ -1,0 +1,5 @@
+{
+  "epochs": 8,
+  "samples": 108,
+  "checkpoint": "/home/rohitpujari/Documents/praxis/models/stgcn_transformer_demo.pt"
+}

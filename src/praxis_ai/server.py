@@ -145,6 +145,7 @@ class PraxisHandler(BaseHTTPRequestHandler):
                 temp_video,
                 sequence,
                 joint_overlay_colors=report.joint_overlay_colors,
+                joint_importance=report.deep_joint_importance,
             )
             if overlay_video:
                 overlay_mime, overlay_base64 = overlay_video

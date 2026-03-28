@@ -315,6 +315,7 @@ def generate_overlay_video(
     video_path: Path,
     sequence: PoseSequence,
     joint_overlay_colors: Optional[Dict[str, str]] = None,
+    joint_importance: Optional[Dict[str, float]] = None,
     output_width: int = 640,
     output_fps: float = 15.0,
 ) -> Optional[Tuple[str, str]]:
@@ -391,6 +392,7 @@ def generate_overlay_video(
                 output_width,
                 output_height,
                 joint_overlay_colors=joint_overlay_colors,
+                joint_importance=joint_importance,
             )
 
         out.write(frame)
@@ -455,6 +457,7 @@ def _draw_skeleton(
     width: int,
     height: int,
     joint_overlay_colors: Optional[Dict[str, str]] = None,
+    joint_importance: Optional[Dict[str, float]] = None,
 ) -> None:
     """Draw stickman skeleton on frame."""
     import cv2  # type: ignore
@@ -512,10 +515,18 @@ def _draw_skeleton(
                 color = severity_colors["yellow"]
             elif start_color == severity_colors["green"] or end_color == severity_colors["green"]:
                 color = severity_colors["green"]
-            cv2.line(frame, points[start_name], points[end_name], color, 3, cv2.LINE_AA)
+            edge_importance = max(
+                float((joint_importance or {}).get(start_name, 0.0)),
+                float((joint_importance or {}).get(end_name, 0.0)),
+            )
+            thickness = 2 + int(round(edge_importance * 5.0))
+            cv2.line(frame, points[start_name], points[end_name], color, thickness, cv2.LINE_AA)
 
     # Draw joint points
     for name, point in points.items():
         joint_color = severity_colors.get((joint_overlay_colors or {}).get(name, ""), (255, 255, 255))
-        cv2.circle(frame, point, 5, joint_color, -1, cv2.LINE_AA)
-        cv2.circle(frame, point, 3, (0, 0, 0), -1, cv2.LINE_AA)
+        importance = float((joint_importance or {}).get(name, 0.0))
+        outer_radius = 5 + int(round(importance * 8.0))
+        inner_radius = max(2, outer_radius - 2)
+        cv2.circle(frame, point, outer_radius, joint_color, -1, cv2.LINE_AA)
+        cv2.circle(frame, point, inner_radius, (0, 0, 0), -1, cv2.LINE_AA)

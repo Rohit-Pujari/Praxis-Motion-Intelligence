@@ -1,0 +1,79 @@
+{
+  "model_type": "nearest_centroid_profile_classifier",
+  "feature_order": [
+    "left_elbow_flexion",
+    "right_elbow_flexion",
+    "left_shoulder_abduction",
+    "right_shoulder_abduction",
+    "left_hip_flexion",
+    "right_hip_flexion",
+    "left_knee_flexion",
+    "right_knee_flexion"
+  ],
+  "labels": [
+    "Normal",
+    "Injury Recovery",
+    "Severe Limitation"
+  ],
+  "centroids": {
+    "Normal": [
+      137.84,
+      102.6,
+      123.68,
+      85.84,
+      83.51,
+      161.53,
+      75.48,
+      142.98,
+      165.98,
+      26.39,
+      168.99,
+      22.29,
+      128.48,
+      40.06,
+      125.6,
+      35.99
+    ],
+    "Injury Recovery": [
+      98.04,
+      66.64,
+      89.57,
+      56.62,
+      46.17,
+      103.69,
+      41.37,
+      92.6,
+      104.39,
+      20.55,
+      106.19,
+      17.36,
+      84.93,
+      31.2,
+      83.21,
+      28.03
+    ],
+    "Severe Limitation": [
+      38.83,
+      13.16,
+      38.83,
+      13.16,
+      -9.37,
+      17.67,
+      -9.37,
+      17.67,
+      12.78,
+      11.88,
+      12.78,
+      10.03,
+      20.15,
+      18.03,
+      20.15,
+      16.2
+    ]
+  },
+  "sources": {
+    "normal": "UCF101-derived normal movement profile",
+    "injury": "Moderate injury-recovery profile calibrated with multimodal_sports_injury_dataset.csv and anchored between UCF101 normal and severe stroke reference anchors",
+    "stroke": "Severe limitation profile anchored to stroke .mat threshold statistics"
+  }
+}

@@ -473,6 +473,7 @@ function ReportView({ report, originalVideoUrl, previousSession }) {
   const annotations = report.annotations || [];
   const repSummary = report.rep_summary || [];
   const jointStatus = report.joint_status || {};
+  const deepJointImportance = report.deep_joint_importance || {};
   const overlayVideoUrl = report.overlay_video
     ? `data:${report.overlay_video_mime || "video/mp4"};base64,${report.overlay_video}`
     : "";
@@ -557,6 +558,16 @@ function ReportView({ report, originalVideoUrl, previousSession }) {
               <strong className="mt-2 block text-lg text-white">
                 {report.overall_condition || "Normal"}
               </strong>
+              {report.model_prediction ? (
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  Basic model says: {report.model_prediction}
+                </p>
+              ) : null}
+              {report.deep_model_prediction ? (
+                <p className="text-sm leading-6 text-slate-400">
+                  ST-GCN + LSTM says: {report.deep_model_prediction} ({report.deep_model_confidence}% confidence)
+                </p>
+              ) : null}
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
               <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
@@ -581,6 +592,37 @@ function ReportView({ report, originalVideoUrl, previousSession }) {
 
         <Panel title="Session Comparison">
           <SessionComparison report={report} previousSession={previousSession} />
+        </Panel>
+
+        <Panel title="Deep Model Attention">
+          {Object.keys(deepJointImportance).length ? (
+            <div className="space-y-3">
+              {Object.entries(deepJointImportance)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 6)
+                .map(([jointName, value]) => (
+                  <div
+                    key={jointName}
+                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-slate-200">{prettyName(jointName)}</span>
+                      <strong className="text-sm text-cyan-200">{(value * 100).toFixed(1)}%</strong>
+                    </div>
+                    <div className="mt-2 h-2 rounded-full bg-white/10">
+                      <div
+                        className="h-2 rounded-full bg-gradient-to-r from-cyan-300 via-sky-300 to-emerald-300"
+                        style={{ width: `${Math.max(6, value * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+            </div>
+          ) : (
+            <p className="text-sm leading-7 text-slate-400">
+              Deep joint attention becomes available when the ST-GCN + Transformer model emits importance weights.
+            </p>
+          )}
         </Panel>
 
         <Panel title="Joint Status">

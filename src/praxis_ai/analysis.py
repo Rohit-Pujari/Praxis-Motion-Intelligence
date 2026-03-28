@@ -16,6 +16,8 @@ from .models import (
     RepSummary,
 )
 from .reference_data import load_injury_profile, load_normal_profile, load_stroke_profile
+from .basic_model import predict_condition_with_basic_model
+from .deep_learning import predict_with_deep_model, torch_available
 
 
 ANGLE_TRIPLETS: Dict[str, Tuple[str, str, str]] = {
@@ -487,10 +489,17 @@ def analyze_pose(
     joint_deviation: Dict[str, float] = {}
     joint_overlay_colors: Dict[str, str] = {}
     overall_condition = "Normal"
+    model_prediction = "Normal"
+    model_distances: Dict[str, float] = {}
+    deep_model_prediction = ""
+    deep_model_confidence = 0.0
+    deep_joint_importance: Dict[str, float] = {}
     if base_dir is not None:
         joint_status, joint_deviation, joint_overlay_colors = classify_joint_status(series, base_dir, selected_condition)
         overall_condition = infer_overall_condition(joint_status)
         feedback.extend(build_condition_feedback(series, joint_status, base_dir))
+        model_prediction, model_distances = predict_condition_with_basic_model(series, base_dir)
+        deep_model_prediction, deep_model_confidence, deep_joint_importance = predict_with_deep_model(sequence, series, base_dir)
     annotations = build_motion_annotations(sequence, series, active_joints, limitations)
     rep_summary = estimate_rep_summary(series, active_joints)
     metadata = dict(sequence.metadata)
@@ -514,6 +523,11 @@ def analyze_pose(
             metadata["injury_profile_rows"] = str(injury_profile.get("csv_rows"))
         if injury_profile.get("severity_blend") is not None:
             metadata["injury_profile_blend"] = str(injury_profile.get("severity_blend"))
+        metadata["basic_model_prediction"] = model_prediction
+        metadata["deep_model_runtime"] = "enabled" if deep_model_prediction else ("torch_missing" if not torch_available() else "checkpoint_missing")
+        if deep_model_prediction:
+            metadata["deep_model_prediction"] = deep_model_prediction
+            metadata["deep_model_confidence"] = f"{deep_model_confidence:.1f}"
     return AnalysisReport(
         label=sequence.label,
         inferred_action="form_analysis",
@@ -531,6 +545,11 @@ def analyze_pose(
         joint_status=joint_status,
         joint_deviation=joint_deviation,
         joint_overlay_colors=joint_overlay_colors,
+        model_prediction=model_prediction,
+        model_distances=model_distances,
+        deep_model_prediction=deep_model_prediction or "",
+        deep_model_confidence=deep_model_confidence or 0.0,
+        deep_joint_importance=deep_joint_importance,
         annotations=annotations,
         rep_summary=rep_summary,
         metadata=metadata,

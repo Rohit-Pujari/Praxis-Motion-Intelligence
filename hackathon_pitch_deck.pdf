@@ -1,0 +1,307 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 6 /Kids [ 5 0 R 7 0 R 9 0 R 11 0 R 13 0 R 15 0 R ] >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Length 578 >>
+stream
+BT
+/F1 30 Tf
+56 525 Td
+(Praxis Motion Intelligence) Tj
+ET
+BT
+/F1 16 Tf
+56 490 Td
+(AI-assisted movement intelligence for rehab and recovery) Tj
+ET
+BT
+/F1 14 Tf
+56 440 Td
+(Analyzes video, webcam clips, or landmark JSON.) Tj
+ET
+BT
+/F1 14 Tf
+56 412 Td
+(Uses UCF101 as the normal movement baseline.) Tj
+ET
+BT
+/F1 14 Tf
+56 384 Td
+(Interprets deviation as Normal, Injury Recovery, or Severe Limitation.) Tj
+ET
+BT
+/F1 14 Tf
+56 356 Td
+(Generates explainable scores, joint status, and stickman replay.) Tj
+ET
+BT
+/F1 10 Tf
+56 32 Td
+(Praxis Motion Intelligence | Hackathon Pitch Deck) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
+endobj
+6 0 obj
+<< /Length 567 >>
+stream
+BT
+/F1 30 Tf
+56 525 Td
+(The Problem) Tj
+ET
+BT
+/F1 16 Tf
+56 490 Td
+(Most demos stop at pose estimation or a basic score) Tj
+ET
+BT
+/F1 14 Tf
+56 440 Td
+(Pose landmarks alone are not enough for clinicians or coaches.) Tj
+ET
+BT
+/F1 14 Tf
+56 412 Td
+(Judges want to know what normal movement looks like.) Tj
+ET
+BT
+/F1 14 Tf
+56 384 Td
+(They also want severity interpretation, not only abnormality detection.) Tj
+ET
+BT
+/F1 14 Tf
+56 356 Td
+(Praxis turns raw pose into movement intelligence.) Tj
+ET
+BT
+/F1 10 Tf
+56 32 Td
+(Praxis Motion Intelligence | Hackathon Pitch Deck) Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 3 0 R >> >> /Contents 6 0 R >>
+endobj
+8 0 obj
+<< /Length 581 >>
+stream
+BT
+/F1 30 Tf
+56 525 Td
+(Core Idea) Tj
+ET
+BT
+/F1 16 Tf
+56 490 Td
+(UCF101 remains the reference baseline) Tj
+ET
+BT
+/F1 14 Tf
+56 440 Td
+(UCF101 defines how movement should ideally be performed.) Tj
+ET
+BT
+/F1 14 Tf
+56 412 Td
+(The sports injury CSV calibrates moderate recovery-level limitation.) Tj
+ET
+BT
+/F1 14 Tf
+56 384 Td
+(Stroke MATLAB thresholds anchor severe neurological limitation.) Tj
+ET
+BT
+/F1 14 Tf
+56 356 Td
+(Everyone is compared to normal first; other datasets only interpret severity.) Tj
+ET
+BT
+/F1 10 Tf
+56 32 Td
+(Praxis Motion Intelligence | Hackathon Pitch Deck) Tj
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 3 0 R >> >> /Contents 8 0 R >>
+endobj
+10 0 obj
+<< /Length 697 >>
+stream
+BT
+/F1 30 Tf
+56 525 Td
+(How It Works) Tj
+ET
+BT
+/F1 16 Tf
+56 490 Td
+(Fast pipeline, no heavy training) Tj
+ET
+BT
+/F1 14 Tf
+56 440 Td
+(1. Input video, webcam capture, or landmark JSON.) Tj
+ET
+BT
+/F1 14 Tf
+56 412 Td
+(2. Extract pose with MediaPipe.) Tj
+ET
+BT
+/F1 14 Tf
+56 384 Td
+(3. Compute elbow, shoulder, hip, and knee angle series.) Tj
+ET
+BT
+/F1 14 Tf
+56 356 Td
+(4. Score mobility, symmetry, and smoothness.) Tj
+ET
+BT
+/F1 14 Tf
+56 328 Td
+(5. Classify each joint against normal, injury, and stroke profiles.) Tj
+ET
+BT
+/F1 14 Tf
+56 300 Td
+(6. Return explainable feedback, charts, annotations, and overlay replay.) Tj
+ET
+BT
+/F1 10 Tf
+56 32 Td
+(Praxis Motion Intelligence | Hackathon Pitch Deck) Tj
+ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 3 0 R >> >> /Contents 10 0 R >>
+endobj
+12 0 obj
+<< /Length 634 >>
+stream
+BT
+/F1 30 Tf
+56 525 Td
+(Why It Is Strong) Tj
+ET
+BT
+/F1 16 Tf
+56 490 Td
+(Visual, explainable, and grounded in real datasets) Tj
+ET
+BT
+/F1 14 Tf
+56 440 Td
+(Human-readable feedback: Reduced ROM, Overextension, Asymmetry, Compensation.) Tj
+ET
+BT
+/F1 14 Tf
+56 412 Td
+(Joint-level status: Green = Normal, Yellow = Injury Recovery, Red = Severe.) Tj
+ET
+BT
+/F1 14 Tf
+56 384 Td
+(Strong demo moments: colored stickman replay, charts, event timeline.) Tj
+ET
+BT
+/F1 14 Tf
+56 356 Td
+(Practical for a hackathon because it is fast, interpretable, and compelling.) Tj
+ET
+BT
+/F1 10 Tf
+56 32 Td
+(Praxis Motion Intelligence | Hackathon Pitch Deck) Tj
+ET
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 3 0 R >> >> /Contents 12 0 R >>
+endobj
+14 0 obj
+<< /Length 671 >>
+stream
+BT
+/F1 30 Tf
+56 525 Td
+(Judge Demo Flow) Tj
+ET
+BT
+/F1 16 Tf
+56 490 Td
+(How to pitch it in under two minutes) Tj
+ET
+BT
+/F1 14 Tf
+56 440 Td
+(Open the app and state that UCF101 is the core reference.) Tj
+ET
+BT
+/F1 14 Tf
+56 412 Td
+(Select a condition profile and upload or record a movement clip.) Tj
+ET
+BT
+/F1 14 Tf
+56 384 Td
+(Run analysis and show the overall score and overall condition.) Tj
+ET
+BT
+/F1 14 Tf
+56 356 Td
+(Point to joint-level status, feedback, and colored overlay replay.) Tj
+ET
+BT
+/F1 14 Tf
+56 328 Td
+(Close with: Praxis turns pose estimation into movement intelligence.) Tj
+ET
+BT
+/F1 10 Tf
+56 32 Td
+(Praxis Motion Intelligence | Hackathon Pitch Deck) Tj
+ET
+endstream
+endobj
+15 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 3 0 R >> >> /Contents 14 0 R >>
+endobj
+xref
+0 16
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000116 00000 n 
+0000000186 00000 n 
+0000000815 00000 n 
+0000000941 00000 n 
+0000001559 00000 n 
+0000001685 00000 n 
+0000002317 00000 n 
+0000002443 00000 n 
+0000003192 00000 n 
+0000003320 00000 n 
+0000004006 00000 n 
+0000004134 00000 n 
+0000004857 00000 n 
+trailer
+<< /Size 16 /Root 1 0 R >>
+startxref
+5025
+%%EOF
